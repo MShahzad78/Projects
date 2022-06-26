@@ -1,0 +1,1908 @@
+Imports System.IO
+Imports System.Reflection
+Imports System.Text
+Imports WinSCP
+Imports Microsoft.Office.Interop
+Imports CrystalDecisions.Shared
+Imports System.Configuration
+Imports System.Collections.Specialized
+
+Public Class KElecData
+    Dim v_TotalRec As Integer = 0
+    Dim FILE_NAME As String
+    Dim Out_FILE_NAME As String
+    Dim TextLine As String
+    Dim v_TANSFER_NUMBER As Integer = 0
+    Dim v_TRANSFER_DATE As String
+    Dim fln As String = ""
+    
+    Private Sub KElecData_Load(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles MyBase.Load
+
+        'Dim dt As DataTable = sysMainClass.orlTable("select max(to_date(to_char(substr(BATCHNO,19,2)) || '/' || to_char(substr(BATCHNO,21,2)) || '/' ||  to_char(substr(BATCHNO,15,4)),'mm/dd/yyyy'))  + 1 BDate from T_KELECT_LOG a where batchno like 'KELECTRIC.BNK%'")
+        'If dt.Rows.Count > 0 Then
+        'DateTimePicker1.Text = dt.Rows(0).Item(0)
+        'DateTimePicker1.Format = DateTimePickerFormat.Custom
+        'DateTimePicker1.CustomFormat = "dd-MMM-yyyy"
+        'Else
+        DateTimePicker1.Text = DateTime.Now.AddDays(-1)
+        DateTimePicker1.Format = DateTimePickerFormat.Custom
+        DateTimePicker1.CustomFormat = "dd-MMM-yyyy"
+        'End If
+        sysMainClass.CreateConn()
+
+        'Dim dt As DataTable = sysMainClass.orlTable("Select * from SP_KELECTRIC_JOB where Active = 'Y'")
+        'If dt.Rows.Count > 0 Then
+        '    For Each row As DataRow In dt.Rows
+        '        If row.Item(1).ToString() = "Bill Download" And row.Item(2) = Now.Hour Then
+        '            Me.DownloadStart()
+        '        ElseIf row.Item(1).ToString() = "Bill Upload" And row.Item(2) = Now.Hour Then
+        '            Me.UploadStart()
+        '        ElseIf row.Item(1).ToString() = "NCM Download" And row.Item(2) = Now.Hour Then
+        '            Me.DownloadStartNCM()
+        '        ElseIf row.Item(1).ToString() = "NCM Upload" And row.Item(2) = Now.Hour Then
+        '            Me.UploadStartNCM()
+        '        ElseIf row.Item(1).ToString() = "Bill TOK Download" And row.Item(2) = Now.Hour Then
+        '            Me.DownloadStartTOK()
+        '        End If
+        '    Next
+        'End If
+
+
+        ''If (Now.Hour = 5) Then
+        ''    Me.DownloadStart()
+        ''ElseIf (Now.Hour = 2) Then
+        ''    Me.UploadStart()
+        ''End If
+        'Application.Exit()
+
+        'If (Now.Hour = 17 And Now.Minute = 10) Then
+        '    Me.UploadStart()
+        '    '    Me.UploadStart2()
+        'End If
+        'Application.Exit()
+    End Sub
+
+    Private Sub DownloadStart()
+        Try
+            Me.v_TotalRec = 0
+            Dim now1 As DateTime
+            '   If DateTime.Now.DayOfWeek = DayOfWeek.Monday Then
+            'now1 = DateTime.Now.AddDays(-2)
+            'Else
+            Dim dt As DataTable = sysMainClass.orlTable("select max(to_date(to_char(substr(BATCHNO,19,2)) || '/' || to_char(substr(BATCHNO,21,2)) || '/' ||  to_char(substr(BATCHNO,15,4)),'mm/dd/yyyy'))  + 1 BDate from T_KELECT_LOG a where batchno like 'KELECTRIC.BNK%' and LOGDETAIL = 'LoadTxtFile End'")
+            If dt.Rows.Count > 0 And dt.Rows(0).Item(0) & "" <> "" Then
+                DateTimePicker1.Text = dt.Rows(0).Item(0)
+                DateTimePicker1.Format = DateTimePickerFormat.Custom
+                DateTimePicker1.CustomFormat = "dd-MMM-yyyy"
+            Else
+                DateTimePicker1.Text = DateTime.Now.AddDays(-1)
+                DateTimePicker1.Format = DateTimePickerFormat.Custom
+                DateTimePicker1.CustomFormat = "dd-MMM-yyyy"
+            End If
+
+
+            '' End If
+            While (DateTimePicker1.Text <= DateTime.Now.AddDays(-1))
+                now1 = DateTimePicker1.Text
+                Me.Label1.Visible = True
+                Application.DoEvents()
+                fln = "KELECTRIC.BNK." & now1.Year.ToString("0000") & now1.Month.ToString("00") & now1.Day.ToString("00") & ".TXT"
+                If Me.downFile(fln) Then
+                    Application.DoEvents()
+                    Me.PictureBox1.Visible = True
+                    Me.Label2.Visible = True
+                    Application.DoEvents()
+                    If Me.LoadTxtFile(fln) Then
+                        Application.DoEvents()
+                        Me.PictureBox2.Visible = True
+                        Me.Label3.Visible = True
+                        Application.DoEvents()
+                        If Me.ValidateData(fln) Then
+                            Application.DoEvents()
+                            Me.PictureBox3.Visible = True
+                            Me.Label4.Visible = True
+                            Application.DoEvents()
+                            If Me.SaveData Then
+                                Me.PictureBox4.Visible = True
+                                Me.lblTotalD.Text = Me.v_TotalRec.ToString
+                            Else
+                                Me.PictureBox4F.Visible = True
+                            End If
+                        Else
+                            Me.PictureBox3F.Visible = True
+                        End If
+                    Else
+                        Me.PictureBox2F.Visible = True
+                    End If
+
+                Else
+                    Me.PictureBox1F.Visible = True
+                End If
+                DateTimePicker1.Text = now1.AddDays(1)
+            End While
+        Catch ex As Exception
+            sysMainClass.errlog(ex)
+        End Try
+        ' Next i
+    End Sub
+
+    Private Sub DownloadStart2()
+
+        Me.v_TotalRec = 0
+        Dim now1 As DateTime
+        '   If DateTime.Now.DayOfWeek = DayOfWeek.Monday Then
+        'now1 = DateTime.Now.AddDays(-2)
+        'Else
+
+
+        now1 = DateTimePicker1.Text
+        '' End If
+
+        Me.Label1.Visible = True
+        Application.DoEvents()
+        fln = "KELECTRIC.BNK." & now1.Year.ToString("0000") & now1.Month.ToString("00") & now1.Day.ToString("00") & ".TXT"
+        If Me.downFile(fln) Then
+            Application.DoEvents()
+            Me.PictureBox1.Visible = True
+            Me.Label2.Visible = True
+            Application.DoEvents()
+            If Me.LoadTxtFile(fln) Then
+                Application.DoEvents()
+                Me.PictureBox2.Visible = True
+                Me.Label3.Visible = True
+                Application.DoEvents()
+                If Me.ValidateData(fln) Then
+                    Application.DoEvents()
+                    Me.PictureBox3.Visible = True
+                    Me.Label4.Visible = True
+                    Application.DoEvents()
+                    If Me.SaveData Then
+                        Me.PictureBox4.Visible = True
+                        Me.lblTotalD.Text = Me.v_TotalRec.ToString
+                    Else
+                        Me.PictureBox4F.Visible = True
+                    End If
+                Else
+                    Me.PictureBox3F.Visible = True
+                End If
+            Else
+                Me.PictureBox2F.Visible = True
+            End If
+
+        Else
+            Me.PictureBox1F.Visible = True
+        End If
+
+
+        'Next i
+    End Sub
+
+    Private Function correctDate(ByVal strdt As String) As String
+        Return strdt.Substring(2, 2) & "-" & strdt.Substring(0, 2) & "-20" & strdt.Substring(4, 2)
+    End Function
+
+    Private Function CreateTXTFile(ByVal v_FILENAME As String) As Boolean
+        Dim flag As Boolean
+        Dim v_fileNamechk As String = "D:\NewProjects\K-Electric\BillFiles\" & v_FILENAME
+        If Not File.Exists(v_fileNamechk) Then
+
+            sysMainClass.orlTable(("begin Insert into FeeColl.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('CreateTXTFile Proce Start','CreateTXTFile Start',sysdate,'" & v_FILENAME & "'); commit; end;"))
+            Dim str As String = ""
+            Dim writer As StreamWriter = Nothing
+            Try
+
+
+                Dim path As String = "D:\NewProjects\K-Electric\BillFiles\"
+                If Not Directory.Exists(path) Then
+                    Directory.CreateDirectory(path)
+                End If
+                str = v_FILENAME
+                Me.Out_FILE_NAME = (path & str)
+                writer = New StreamWriter((path & str), False, Encoding.Default)
+                Dim builder As New StringBuilder
+                'Dim dt As DataTable = sysMainClass.orlTable("Select AC_BRANCH, Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,3,4) then 1 end BatchPayCode ,Trunc(SUPERVISED_DATE) Batch_Date,Count(*) StubCount,sum(RECEIVED_AMOUNT) BatchAmount,(select KE_CODE from T_KELECTRIC_CODE where BRANCH_CODE = lpad(T_COLLECTION_BILL.AC_BRANCH,4,'0')) KE_CODE from T_COLLECTION_BILL  where RECORD_STAT = 'A' and supervised_date is not null and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end GROUP BY AC_BRANCH,Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,3,4) then 1 end, Trunc(SUPERVISED_DATE) Order by AC_BRANCH,Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,3,4) then 1 end")
+                Dim dt As DataTable = sysMainClass.orlTable("Select AC_BRANCH, Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,3,4) then 1 end BatchPayCode ,Trunc(SUPERVISED_DATE) Batch_Date,Count(*) StubCount,sum(RECEIVED_AMOUNT) BatchAmount,(select KE_CODE from T_KELECTRIC_CODE where BRANCH_CODE = lpad(T_COLLECTION_BILL.AC_BRANCH,4,'0')) KE_CODE from T_COLLECTION_BILL  where RECORD_STAT = 'A' and supervised_date is not null and Trunc(SUPERVISED_DATE) = '" & DateTimePicker1.Text & "' and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end GROUP BY AC_BRANCH,Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,3,4) then 1 end, Trunc(SUPERVISED_DATE) Order by AC_BRANCH,Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,3,4) then 1 end")
+                Dim num4 As Integer = (dt.Rows.Count - 1)
+                Dim i As Integer = 0
+                Do While (i <= num4)
+                    writer.Write(Strings.Space(8))
+                    writer.Write("?")
+                    writer.Write(dt.Rows.Item(i).Item("BatchPayCode").ToString)
+                    Dim time As DateTime = CDate(dt.Rows.Item(i).Item("Batch_Date"))
+                    Dim introduced22 As String = time.Day.ToString("00")
+                    Dim introduced23 As String = time.Month.ToString("00")
+                    writer.Write((introduced22 & introduced23 & time.Year.ToString("00").Substring(2, 2)))
+                    writer.Write(dt.Rows.Item(i).Item("KE_CODE").ToString.PadLeft(4, "0"))
+                    writer.Write("0001")
+                    writer.Write(dt.Rows.Item(i).Item("StubCount").ToString.PadLeft(4, "0"))
+                    writer.Write(dt.Rows.Item(i).Item("BatchAmount").ToString.PadLeft(11, "0"))
+                    writer.Write(ChrW(13) & ChrW(10))
+                    'Dim dt2 As DataTable = sysMainClass.orlTable("select * from (select BUYYER_NO,AC_BRANCH,Trunc(SUPERVISED_DATE) Payment_Date,RECEIVED_AMOUNT, Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,3,4) then 1 end Payment_Mode,CONSUMER_NUMBER,nvl(BILL_NO,'0') BILL_NO,nvl(DUE_DATE,Trunc(SUPERVISED_DATE)) DUE_DATE,NET_AMOUNT_RA,GROSS_AMOUNT_RA,(select KE_CODE from T_KELECTRIC_CODE where BRANCH_CODE = lpad(T_COLLECTION_BILL.AC_BRANCH,4,'0')) KE_CODE from T_COLLECTION_BILL WHERE RECORD_STAT = 'A' and supervised_date is not null and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end ) x   WHERE  x.AC_BRANCH = '" & dt.Rows.Item(i).Item("AC_BRANCH") & "' and Trunc(x.Payment_Date) = '" & DateTime.Parse(dt.Rows.Item(i).Item("Batch_Date")).ToString("dd-MMM-yyyy") & "' and PAYMENT_MODE = '" & dt.Rows.Item(i).Item("BatchPayCode") & "'")
+                    Dim dt2 As DataTable = sysMainClass.orlTable("select * from (select BUYYER_NO,AC_BRANCH,Trunc(SUPERVISED_DATE) Payment_Date,RECEIVED_AMOUNT, Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,3,4) then 1 end Payment_Mode,CONSUMER_NUMBER,nvl(BILL_NO,'0') BILL_NO,nvl(DUE_DATE,Trunc(SUPERVISED_DATE)) DUE_DATE,NET_AMOUNT_RA,GROSS_AMOUNT_RA,(select KE_CODE from T_KELECTRIC_CODE where BRANCH_CODE = lpad(T_COLLECTION_BILL.AC_BRANCH,4,'0')) KE_CODE from T_COLLECTION_BILL WHERE RECORD_STAT = 'A' and supervised_date is not null and Trunc(SUPERVISED_DATE) = '" & DateTimePicker1.Text & "' and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end ) x   WHERE  x.AC_BRANCH = '" & dt.Rows.Item(i).Item("AC_BRANCH") & "' and Trunc(x.Payment_Date) = '" & DateTime.Parse(dt.Rows.Item(i).Item("Batch_Date")).ToString("dd-MMM-yyyy") & "' and PAYMENT_MODE = '" & dt.Rows.Item(i).Item("BatchPayCode") & "'")
+                    Dim num8 As Integer = (dt2.Rows.Count - 1)
+                    Dim j As Integer = 0
+                    Do While (j <= num8)
+                        writer.Write(Strings.Space(8))
+                        writer.Write("X")
+                        writer.Write(Strings.Space(3))
+                        writer.Write(dt2.Rows.Item(j).Item("BILL_NO").ToString.PadLeft(13, "0"))
+                        writer.Write("777")
+                        writer.Write(dt2.Rows.Item(j).Item("KE_CODE").ToString.PadLeft(4, "0"))
+                        Dim time3 As DateTime = CDate(dt2.Rows.Item(j).Item("Payment_Date"))
+                        Dim introduced24 As String = time3.Day.ToString("00")
+                        Dim introduced25 As String = time3.Month.ToString("00")
+                        writer.Write((introduced24 & introduced25 & time3.Year.ToString("00").Substring(2, 2)))
+                        writer.Write(Strings.Space(2))
+                        Dim num7 As Integer = (j + 1)
+                        writer.Write(num7.ToString.PadLeft(4, "0"))
+                        writer.Write(dt2.Rows.Item(j).Item("RECEIVED_AMOUNT").ToString.PadLeft(10, "0"))
+                        writer.Write(dt2.Rows.Item(j).Item("Payment_Mode").ToString)
+                        writer.Write("A")
+                        writer.Write(Strings.Space(1))
+                        writer.Write(dt2.Rows.Item(j).Item("CONSUMER_NUMBER").ToString.PadLeft(8, "0"))
+                        writer.Write(Strings.Space(1))
+                        writer.Write(dt2.Rows.Item(j).Item("BUYYER_NO").ToString.PadLeft(15, "0"))
+                        Dim time2 As DateTime = DateTime.Parse(dt2.Rows.Item(j).Item("DUE_DATE"))
+                        Dim introduced26 As String = time2.Day.ToString("00")
+                        Dim introduced27 As String = time2.Month.ToString("00")
+                        writer.Write((introduced26 & introduced27 & time2.Year.ToString("00").Substring(2, 2)))
+                        writer.Write(If((dt2.Rows.Item(j).Item("BUYYER_NO").ToString <> "0"), dt2.Rows.Item(j).Item("NET_AMOUNT_RA").ToString.PadLeft(10, "0"), "0".ToString.PadLeft(10, "0")))
+                        writer.Write(If((dt2.Rows.Item(j).Item("BUYYER_NO").ToString <> "0"), dt2.Rows.Item(j).Item("GROSS_AMOUNT_RA").ToString.PadLeft(10, "0"), "0".ToString.PadLeft(10, "0")))
+                        writer.Write(ChrW(13) & ChrW(10))
+                        j += 1
+                    Loop
+                    i += 1
+                Loop
+                writer.Flush()
+                writer.Close()
+                sysMainClass.orlTable(("begin Insert into FeeColl.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('CreateTXTFile Proce End','CreateTXTFile End',sysdate,'" & v_FILENAME & "'); commit; end;"))
+                flag = True
+
+
+            Catch exception1 As Exception
+
+                sysMainClass.orlTable(("begin Insert into FeeColl.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('CreateTXTFile Proce Error','CreateTXTFile Error',sysdate,'" & v_FILENAME & "'); commit; end;"))
+                writer.Close()
+                flag = False
+                Return flag
+
+            End Try
+        Else
+            flag = True
+        End If
+        Return flag
+
+    End Function
+
+
+    Public Function downFile(ByVal fln As String) As Boolean
+        Dim flag As Boolean
+        Dim FTPfln As String = ""
+        Dim v_filenamechk As String = "D:\NewProjects\K-Electric\BillFiles\" & fln
+
+        Try
+            ' sysMainClass.orlTable(("Insert into Feecoll.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('New Batch downFile Proce Start','New Batch Loading',sysdate,'" & fln & "')"))
+            If Not File.Exists(v_filenamechk) Then
+                Application.DoEvents()
+                flag = False
+
+                FTPfln = "/CURRENT_FILES  (DIB)/" & fln
+                Dim FTP_FileName As String = System.IO.Path.GetFileName(FTPfln)
+                Dim regDate As Date = Date.Now()
+                'Make folder for download
+                'Dim storeDirectory As String = "X:\K-Electric\BillFiles\"
+                Dim storeDirectory As String = "D:\NewProjects\K-Electric\BillFiles\"
+                If Not Directory.Exists(storeDirectory) Then
+                    Directory.CreateDirectory(storeDirectory)
+                End If
+
+                Application.DoEvents()
+                Dim FileDown_Path As String = storeDirectory
+                ' Setup session options
+                Dim sessionOptions As New SessionOptions
+                With sessionOptions
+                    .Protocol = Protocol.Ftp
+                    .FtpSecure = FtpSecure.Implicit
+
+                    .HostName = "kescftp.ke.com.pk"
+                    .UserName = "askari"
+                    .Password = "Askari@862"
+                    '.HostName = "172.24.9.130"
+                    '.UserName = "ibbtkf"
+                    '.Password = "ibb1234"
+                    '  .SshHostKeyFingerprint = "ssh-dss 1536 19:7c:20:d9:4f:58:ce:74:9b:57:f8:c3:e1:52:31:09"
+                    '.TlsHostCertificateFingerprint = "37:01:31:a8:32:be:73:c2:c9:99:13:8a:ce:74:ef:00:77:75:78:ac" last key
+                    .TlsHostCertificateFingerprint = ConfigurationSettings.AppSettings("CertKey")
+
+                    '.FtpSecure = FtpSecure.Implicit
+                    .PortNumber = 34522
+                    '.SshHostKeyFingerprint = "ssh-rsa 2048 xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx"
+                End With
+                Application.DoEvents()
+                Using session As Session = New Session
+                    ' Connect
+                    'session.DisableVersionCheck = True
+                    session.Open(sessionOptions)
+
+                    ' Upload files
+                    Dim transferOptions As New TransferOptions
+                    transferOptions.TransferMode = TransferMode.Binary
+                    Application.DoEvents()
+                    Dim transferResult As TransferOperationResult
+                    transferResult = session.GetFiles(FTPfln, FileDown_Path, False, transferOptions)
+                    Application.DoEvents()
+                    ' Throw on any error
+                    transferResult.Check()
+                    If transferResult.IsSuccess = True Then
+                        flag = True
+                        Return True
+                    End If
+                    Application.DoEvents()
+
+                    '      sysMainClass.orlTable(("Insert into Feecoll.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('New Batch downFile Proce End','New Batch Loading',sysdate,'" & fln & "')"))
+                    Application.DoEvents()
+                    ' Print results
+                    'Dim transfer As TransferEventArgs
+                    'For Each transfer In transferResult.Transfers
+                    'Console.WriteLine("Upload of {0} succeeded", transfer.FileName)
+                    'Next
+                End Using
+            Else
+                flag = True
+                Return flag
+            End If
+        Catch ex As Exception
+            flag = False
+            Return flag
+            '      sysMainClass.orlTable(("Insert into Feecoll.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('New Batch downFile Proce Error','New Batch Loading',sysdate,'" & fln & "')"))
+
+        End Try
+        Return flag
+    End Function
+
+    Private Function LoadTxtFile(ByVal v_FileName As String) As Boolean
+        Dim flag As Boolean
+        Dim v_filenamelog As String = v_FileName
+        sysMainClass.orlTable("begin Delete from T_COLL_ELECTRIC_TEMP; commit; end;")
+        sysMainClass.orlTable(("begin Insert into FeeColl.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('LoadTxtFile Proce Start','LoadTxtFile Start',sysdate,'" & v_FileName & "'); commit; end;"))
+        v_FileName = "D:\NewProjects\K-Electric\BillFiles\" & v_FileName
+        Try
+            If File.Exists(v_FileName) Then
+                Dim reader As New StreamReader(v_FileName)
+                Dim i As Integer = 0
+                Do While (reader.Peek <> -1)
+                    Dim strArray As String() = reader.ReadLine.Split("|")
+                    If ((i <> 0) And Not strArray(0).Contains("***EOF***")) Then
+                        sysMainClass.orlTable("begin SP_COLL_ELECTRIC_INSERT('" & strArray(0) & strArray(4) & "','" & strArray(0) & "','" & strArray(1) & "','" & Replace(strArray(2), "'", "''") & "','" & strArray(3) & "','" & strArray(4) & "','" & DateTime.Parse(Me.correctDate(strArray(5))).ToString("dd-MMM-yyyy") & "','" & DateTime.Parse(Me.correctDate(strArray(6))).ToString("dd-MMM-yyyy") & "'," & strArray(7) & "," & strArray(8) & "," & strArray(9) & "," & strArray(10) & "," & strArray(11) & ",'KUser','" & DateTime.Parse(DateTimePicker1.Text).ToString("dd-MMM-yyyy") & "'); end;")
+                        '  sysMainClass.orlTable("Insert into FeeColl.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('New Data Loading','New Data Loading',sysdate,'" & strArray(0) & "')")
+                    End If
+                    i += 1
+                Loop
+                sysMainClass.orlTable("begin Insert into FeeColl.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('LoadTxtFile Proce End','LoadTxtFile End',sysdate,'" & v_filenamelog & "'); commit; end;")
+                flag = True
+                Return True
+            End If
+            sysMainClass.orlTable("begin Insert into FeeColl.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('LoadTxtFile Proce Error','File Doesnot Exist',sysdate,'" & v_filenamelog & "'); commit; end;")
+            flag = False
+        Catch ex As Exception
+
+            sysMainClass.orlTable("begin Insert into FeeColl.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('LoadTxtFile Proce Error','" & ex.Message & "',sysdate,'" & v_filenamelog & "'); commit; end;")
+            flag = False
+            Return flag
+
+        End Try
+        Return flag
+    End Function
+
+
+
+    Private Function SaveData() As Boolean
+        Dim flag As Boolean
+        Try
+            '  sysMainClass.orlTable("begin Insert into T_COLL_ELECTRIC_HIST Select *,'SCH_USER',sysdate from T_COLL_ELECTRIC where Account_number in (Select ACCOUNT_NUMBER from T_COLL_ELECTRIC_TEMP); commit; end;")
+            ' sysMainClass.orlTable("begin Delete from T_COLL_ELECTRIC where Account_number in (Select ACCOUNT_NUMBER from T_COLL_ELECTRIC_TEMP); commit; end;")
+            sysMainClass.orlTable("begin Insert into T_COLL_ELECTRIC Select * from T_COLL_ELECTRIC_TEMP where bill_no  not in (select  bill_no from T_COLL_ELECTRIC); commit; end;")
+            Dim table As DataTable = sysMainClass.orlTable("Select nvl(count(*),0) cnt from T_COLL_ELECTRIC_TEMP")
+            Me.v_TotalRec = CInt(table.Rows.Item(0).Item("cnt"))
+            sysMainClass.orlTable("begin Delete from T_COLL_ELECTRIC_TEMP; commit; end;")
+            flag = True
+        Catch exception1 As Exception
+            flag = False
+            Return flag
+
+        End Try
+        Return flag
+    End Function
+
+
+
+    Public Function UpFile(ByVal fln As String) As Boolean
+        Dim flag As Boolean
+        sysMainClass.orlTable(("begin Insert into FeeColl.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('Check Data Proce Start','Check  Data Start',sysdate,'" & fln & "'); commit; end;"))
+        Try
+            If (sysMainClass.orlTable("select nvl(count(*),0) cnt from T_COLLECTION_BILL WHERE RECORD_STAT = 'A' and nvl(SENDTO,0) = 0").Rows.Count > 0) Then
+                sysMainClass.orlTable(("begin Insert into FeeColl.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('Check Data Proce End','Check Data End',sysdate,'" & fln & "'); commit; end;"))
+                flag = True
+                Return True
+            End If
+        Catch exception1 As Exception
+
+            sysMainClass.orlTable(("begin Insert into FeeColl.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('Check Data Proce Error','No Record Found',sysdate,'" & fln & "'); commit; end;"))
+            flag = False
+
+            Return flag
+
+        End Try
+        Return flag
+    End Function
+
+    Public Function UploadsFTP(ByVal fln As String) As Boolean
+        Dim flag As Boolean
+        Dim FTPfln As String = ""
+        '  sysMainClass.orlTable(("Insert into FeeColl.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('UploadsFTP File Proce Start','UploadsFTP File Start',sysdate,'" & fln & "')"))
+        sysMainClass.orlTable(("begin Insert into FeeColl.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('UploadTXTFile Proce Start','UploadTXTFile Start',sysdate,'" & fln & "'); commit; end;"))
+
+        Try
+            Application.DoEvents()
+            flag = True
+
+            FTPfln = fln
+            Dim FTP_FileName As String = System.IO.Path.GetFileName(FTPfln)
+            Dim regDate As Date = Date.Now()
+            'Make folder for download
+            ' Dim storeDirectory As String = "D:\NewProjects\K-Electric\BillFiles\"
+            'If Not Directory.Exists(storeDirectory) Then
+            'Directory.CreateDirectory(storeDirectory)
+            'End If
+
+            Application.DoEvents()
+            'Dim FileDown_Path As String = "X:\K-Electric\BillFiles\" & FTPfln
+            Dim FileDown_Path As String = "D:\NewProjects\K-Electric\BillFiles\" & FTPfln
+            ' Setup session options
+            Dim sessionOptions As New SessionOptions
+            With sessionOptions
+                .Protocol = Protocol.Ftp
+                .FtpSecure = FtpSecure.Implicit
+
+                .HostName = "kescftp.ke.com.pk"
+                .UserName = "askcash"
+                .Password = "Ask@cash417"
+                '.HostName = "172.24.9.130"
+                '.UserName = "ibbtkf"
+                '.Password = "ibb1234"
+                '  .SshHostKeyFingerprint = "ssh-dss 1536 19:7c:20:d9:4f:58:ce:74:9b:57:f8:c3:e1:52:31:09"
+
+                '.TlsHostCertificateFingerprint = "30:dd:6a:c1:64:3b:05:91:f1:0f:97:81:3e:de:8c:e2:58:15:15:6b"
+                ' .TlsHostCertificateFingerprint = "37:01:31:a8:32:be:73:c2:c9:99:13:8a:ce:74:ef:00:77:75:78:ac"
+                .TlsHostCertificateFingerprint = ConfigurationSettings.AppSettings("CertKey")
+                '.FtpSecure = FtpSecure.Implicit
+                .PortNumber = 34522
+                '.SshHostKeyFingerprint = "ssh-rsa 2048 xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx"
+            End With
+            Application.DoEvents()
+            Using session As Session = New Session
+                ' Connect
+                'session.DisableVersionCheck = True
+                session.Open(sessionOptions)
+
+                ' Upload files
+                Dim transferOptions As New TransferOptions
+                transferOptions.TransferMode = TransferMode.Binary
+                Application.DoEvents()
+                Dim transferResult As TransferOperationResult
+                transferResult = session.PutFiles(FileDown_Path, "/", False, transferOptions)
+                Application.DoEvents()
+                ' Throw on any error
+                transferResult.Check()
+                If transferResult.IsSuccess = True Then
+                    sysMainClass.orlTable(("begin Insert into FeeColl.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('UploadTXTFile Proce End','UploadTXTFile End',sysdate,'" & fln & "'); commit; end;"))
+                    flag = True
+                    Return True
+                End If
+                Application.DoEvents()
+
+                '    sysMainClass.orlTable(("Insert into Feecoll.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('New Batch UpFile Proce End','New Batch Loading',sysdate,'" & fln & "')"))
+                Application.DoEvents()
+                ' Print results
+                'Dim transfer As TransferEventArgs
+                'For Each transfer In transferResult.Transfers
+                'Console.WriteLine("Upload of {0} succeeded", transfer.FileName)
+                'Next
+            End Using
+
+           
+        Catch exception1 As Exception
+            sysMainClass.orlTable(("begin Insert into FeeColl.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('UploadTXTFile Proce Error','UploadTXTFile Error',sysdate,'" & fln & "'); commit; end;"))
+
+            '      sysMainClass.orlTable(("Insert into FeeColl.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('UploadsFTP File Proce Loaded Error','UploadsFTP File Loaded Error',sysdate,'" & fln & "')"))
+            flag = False
+
+            Return flag
+
+        End Try
+        Return flag
+    End Function
+
+    Private Sub UploadStart()
+        Try
+            Dim now1 As DateTime
+            '   If DateTime.Now.DayOfWeek = DayOfWeek.Monday Then
+            'now1 = DateTime.Now.AddDays(-2)
+            'Else
+            '   For i = 1 To 3
+            Dim dt As DataTable = sysMainClass.orlTable("select max(to_date(to_char(substr(BATCHNO,6,2)) || '/' || to_char(substr(BATCHNO,4,2)) || '/' || to_char(substr(BATCHNO,8,4)),'mm/dd/yyyy')) + 1 BDate from T_KELECT_LOG a where batchno like 'ASK%' and LOGDETAIL = 'UploadTXTFile End'")
+            If dt.Rows.Count > 0 And dt.Rows(0).Item(0) & "" <> "" Then
+                DateTimePicker1.Text = dt.Rows(0).Item(0)
+                DateTimePicker1.Format = DateTimePickerFormat.Custom
+                DateTimePicker1.CustomFormat = "dd-MMM-yyyy"
+            Else
+                DateTimePicker1.Text = DateTime.Now.AddDays(-1)
+                DateTimePicker1.Format = DateTimePickerFormat.Custom
+                DateTimePicker1.CustomFormat = "dd-MMM-yyyy"
+            End If
+
+            While (DateTimePicker1.Text <= DateTime.Now.AddDays(-1))
+                now1 = DateTimePicker1.Text
+
+                Me.v_TotalRec = 0
+                Dim now As DateTime = DateTime.Now
+                Me.lblHeading.Visible = True
+                Me.lblHeading.Text = "Get Payment Data ..."
+                Application.DoEvents()
+                Dim fln As String = String.Concat(New String() {"ASK", now1.Day.ToString("00"), now1.Month.ToString("00"), now1.Year.ToString("0000"), ".DAT"})
+                Dim fln2 As String = "MIS CONTROL" & now1.Day.ToString("00") & now1.Month.ToString("00") & now1.Year.ToString("0000") & ".xls"
+                Dim fln3 As String = "KESCUBCSScrollandSumDailyReport" & now1.Day.ToString("00") & now1.Month.ToString("00") & now1.Year.ToString("0000") & ".xls"
+
+                If Me.UpFile(fln) Then
+                    Application.DoEvents()
+                    Me.PictureBox1.Visible = True
+                    Me.Label1.Visible = True
+                    Me.Label1.Text = "Generate Payment File"
+                    Application.DoEvents()
+                    If Me.CreateTXTFile(fln) Then
+                        Application.DoEvents()
+                        Me.PictureBox2.Visible = True
+                        Me.Label2.Visible = True
+                        Me.Label2.Text = "Upload on FTP"
+                        Application.DoEvents()
+                        Call CreateExcel()
+                        Call CreateExcelDetail()
+                        If Me.UploadsFTP(fln) Then
+                            'If Me.UploadsFTP(fln2) Then
+                            '    'If Me.UploadsFTP(fln3) Then
+                            '    '    Me.PictureBox3.Visible = True
+                            '    'Else
+                            '    '    Me.PictureBox3F.Visible = True
+                            '    'End If
+                            'Else
+                            '    Me.PictureBox3F.Visible = True
+                            'End If
+                        Else
+                            Me.PictureBox3F.Visible = True
+                        End If
+                    Else
+                        Me.PictureBox2F.Visible = True
+                    End If
+                    Else
+                        Me.PictureBox1F.Visible = True
+                    End If
+                DateTimePicker1.Text = now1.AddDays(1)
+            End While
+        Catch ex As Exception
+            sysMainClass.errlog(ex)
+        End Try
+        ' Next i
+    End Sub
+
+    Private Sub UploadStart2()
+
+        Dim now1 As DateTime
+        '   If DateTime.Now.DayOfWeek = DayOfWeek.Monday Then
+        'now1 = DateTime.Now.AddDays(-2)
+        'Else
+        '   For i = 1 To 3
+        now1 = DateTimePicker1.Text
+
+        Me.v_TotalRec = 0
+        Dim now As DateTime = DateTime.Now
+        Me.lblHeading.Visible = True
+        Me.lblHeading.Text = "Get Payment Data ..."
+        Application.DoEvents()
+        Dim fln As String = String.Concat(New String() {"ASK", now1.Day.ToString("00"), now1.Month.ToString("00"), now1.Year.ToString("0000"), ".DAT"})
+        Dim fln2 As String = "MIS CONTROL" & now1.Day.ToString("00") & now1.Month.ToString("00") & now1.Year.ToString("0000")
+        Dim fln3 As String = "KESCUBCSScrollandSumDailyReport" & now1.Day.ToString("00") & now1.Month.ToString("00") & now1.Year.ToString("0000") & ".xls"
+
+        If Me.UpFile(fln) Then
+            Application.DoEvents()
+            Me.PictureBox1.Visible = True
+            Me.Label1.Visible = True
+            Me.Label1.Text = "Generate Payment File"
+            Application.DoEvents()
+            If Me.CreateTXTFile(fln) Then
+                Application.DoEvents()
+                Me.PictureBox2.Visible = True
+                Me.Label2.Visible = True
+                Me.Label2.Text = "Upload on FTP"
+                Application.DoEvents()
+                Call CreateExcel()
+                Call CreateExcelDetail()
+                '      If Me.UploadsFTP(fln) Then
+                'If Me.UploadsFTP(fln2) Then
+                '    'If Me.UploadsFTP(fln3) Then
+                '    '    Me.PictureBox3.Visible = True
+                '    'Else
+                '    '    Me.PictureBox3F.Visible = True
+                '    'End If
+                'Else
+                '    Me.PictureBox3F.Visible = True
+                'End If
+                ' Else
+                '  Me.PictureBox3F.Visible = True
+                '  End If
+            Else
+                Me.PictureBox2F.Visible = True
+            End If
+        Else
+            Me.PictureBox1F.Visible = True
+        End If
+
+    End Sub
+    Private Function ValidateData(ByVal fln As String) As Boolean
+        Dim flag As Boolean = True
+        Return flag
+    End Function
+
+    Private Sub ToolStripButton1_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles ToolStripButton1.Click
+        Me.DownloadStart2()
+        'Me.DownloadStart()
+
+    End Sub
+
+    Private Sub ToolStripButton2_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles ToolStripButton2.Click
+        'Me.UploadStart()
+        Me.UploadStart2()
+    End Sub
+
+    Private Sub CreateExcel()
+        Dim now1 As DateTime
+        '   If DateTime.Now.DayOfWeek = DayOfWeek.Monday Then
+        'now1 = DateTime.Now.AddDays(-2)
+        'Else
+        now1 = DateTimePicker1.Text
+
+        Dim path As String = "D:\NewProjects\K-Electric\BillFiles\MIS CONTROL" & now1.Day.ToString("00") & now1.Month.ToString("00") & now1.Year.ToString("0000") & ".xls"
+        Dim strFileName As String = path
+        'If System.IO.File.Exists(strFileName) Then
+        '    System.IO.File.Delete(strFileName)
+        'End If
+        If Not System.IO.File.Exists(strFileName) Then
+            Dim excel As New Excel.Application
+            Dim wBook As Excel.Workbook
+            Dim wSheet As Excel.Worksheet
+
+            wBook = excel.Workbooks.Add()
+            wSheet = wBook.ActiveSheet()
+
+            'Dim dt As System.Data.DataTable = sysMainClass.orlTable("Select Trunc(SUPERVISED_DATE) tDate,sum(RECEIVED_AMOUNT)  ScrollAmount,sum(RECEIVED_AMOUNT) FundAmount from T_COLLECTION_BILL  where RECORD_STAT = 'A' and supervised_date is not null and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end  GROUP BY Trunc(SUPERVISED_DATE)")
+            Dim dt As System.Data.DataTable = sysMainClass.orlTable("Select Trunc(SUPERVISED_DATE) tDate,sum(RECEIVED_AMOUNT)  ScrollAmount,sum(RECEIVED_AMOUNT) FundAmount from T_COLLECTION_BILL  where RECORD_STAT = 'A' and supervised_date is not null and Trunc(SUPERVISED_DATE) = '" & DateTimePicker1.Text & "' and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end  GROUP BY Trunc(SUPERVISED_DATE)")
+            Dim dc As System.Data.DataColumn
+            Dim dr As System.Data.DataRow
+            Dim colIndex As Integer = 0
+            Dim rowIndex As Integer = 0
+            wSheet.Range(wSheet.Cells(1, 1), wSheet.Cells(1, 3)).Merge()
+            'wSheet.Range(wSheet.Cells(1, 1), wSheet.Cells(1, 1)).VerticalAlignment = excel.Constants.xlCenter
+
+            wSheet.Cells(1, 1) = "K-Electric"
+            wSheet.Cells(2, colIndex + 1) = "Date"
+            wSheet.Cells(2, colIndex + 2) = "Scroll Amount"
+            wSheet.Cells(2, colIndex + 3) = "Fund Amount"
+
+            'For Each dc In dt.Columns
+            '    colIndex = colIndex + 1
+            '    wSheet.Cells(2, colIndex) = dc.ColumnName
+            'Next
+
+            For Each dr In dt.Rows
+                rowIndex = rowIndex + 3
+                colIndex = 0
+                For Each dc In dt.Columns
+                    colIndex = colIndex + 1
+                    wSheet.Cells(rowIndex, colIndex) = dr(dc.ColumnName)
+                Next
+            Next
+
+            wSheet.Range(wSheet.Cells(5, 1), wSheet.Cells(5, 3)).Merge()
+            ' wSheet.Range(wSheet.Cells(5, 1), wSheet.Cells(5, 1)).VerticalAlignment = excel.Constants.xlCenter
+
+            wSheet.Cells(5, 1) = "As Per Scroll"
+            wSheet.Cells(6, 1) = "Date"
+            wSheet.Cells(6, 2) = "Total Stubs"
+            wSheet.Cells(6, 3) = "Total Amount"
+
+            'Dim dt2 As System.Data.DataTable = sysMainClass.orlTable("Select Trunc(SUPERVISED_DATE) tDate,Count(*)  TotalStubs,sum(RECEIVED_AMOUNT) FundAmount from T_COLLECTION_BILL  where RECORD_STAT = 'A' and supervised_date is not null and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end  GROUP BY Trunc(SUPERVISED_DATE)")
+            Dim dt2 As System.Data.DataTable = sysMainClass.orlTable("Select Trunc(SUPERVISED_DATE) tDate,Count(*)  TotalStubs,sum(RECEIVED_AMOUNT) FundAmount from T_COLLECTION_BILL  where RECORD_STAT = 'A' and supervised_date is not null and Trunc(SUPERVISED_DATE) = '" & DateTimePicker1.Text & "' and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end  GROUP BY Trunc(SUPERVISED_DATE)")
+
+            Dim dc2 As System.Data.DataColumn
+            Dim dr2 As System.Data.DataRow
+            For Each dr2 In dt2.Rows
+                rowIndex = 7
+                colIndex = 0
+                For Each dc2 In dt2.Columns
+                    colIndex = colIndex + 1
+                    wSheet.Cells(rowIndex, colIndex) = dr2(dc2.ColumnName)
+                Next
+            Next
+
+
+            wSheet.Columns.AutoFit()
+            'wBook.SaveAs(strFileName)
+            wBook.SaveCopyAs(strFileName)
+            ReleaseObject(wSheet)
+            wBook.Close(False)
+            ReleaseObject(wBook)
+            excel.Quit()
+            ReleaseObject(excel)
+            GC.Collect()
+            '  sysMainClass.orlTable("begin Update T_COLLECTION_BILL SET SENDTO = 1 WHERE RECORD_STAT = 'A' and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end ; commit; end;")
+        End If
+        ' MessageBox.Show("File Export Successfully!")
+    End Sub
+    Private Sub ReleaseObject(ByVal o As Object)
+        Try
+            While (System.Runtime.InteropServices.Marshal.ReleaseComObject(o) > 0)
+            End While
+        Catch
+        Finally
+            o = Nothing
+        End Try
+    End Sub
+
+    Private Sub CreateExcelDetail()
+        Dim now1 As DateTime
+        '   If DateTime.Now.DayOfWeek = DayOfWeek.Monday Then
+        'now1 = DateTime.Now.AddDays(-2)
+        'Else
+        now1 = DateTimePicker1.Text
+
+        Dim path As String = "D:\NewProjects\K-Electric\BillFiles\KESCUBCSScrollandSumDailyReport" & now1.Day.ToString("00") & now1.Month.ToString("00") & now1.Year.ToString("0000") & ".xls"
+        Dim strFileName As String = path
+        'If System.IO.File.Exists(strFileName) Then
+        '    System.IO.File.Delete(strFileName)
+        'End If
+        If Not System.IO.File.Exists(strFileName) Then
+            Dim rpt As New ExcelDetail
+
+            'Dim dt As DataTable = sysMainClass.orlTable("Select T_COLLECTION_BILL.*,Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,3,4) then 1 end Payment_Mode2,Case when  PAYMENT_MODE = 1 then 'CASH' when PAYMENT_MODE in (2,3,4) then 'CHEQUE' end Payment_Type,(select KE_CODE from T_KELECTRIC_CODE where BRANCH_CODE = lpad(T_COLLECTION_BILL.AC_BRANCH,4,'0')) KE_CODE,(Select Branch_Name from sttm_branch where branch_code=  AC_BRANCH) Branch_Name from T_COLLECTION_BILL  where RECORD_STAT = 'A'  and supervised_date is not null and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end ")
+            Dim dt As DataTable = sysMainClass.orlTable("Select T_COLLECTION_BILL.*,Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,3,4) then 1 end Payment_Mode2,Case when  PAYMENT_MODE = 1 then 'CASH' when PAYMENT_MODE in (2,3,4) then 'CHEQUE' end Payment_Type,(select KE_CODE from T_KELECTRIC_CODE where BRANCH_CODE = lpad(T_COLLECTION_BILL.AC_BRANCH,4,'0')) KE_CODE,(Select Branch_Name from sttm_branch where branch_code=  AC_BRANCH) Branch_Name from T_COLLECTION_BILL  where RECORD_STAT = 'A'  and supervised_date is not null and Trunc(SUPERVISED_DATE) = '" & DateTimePicker1.Text & "'  and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end ")
+            'Dim dt As DataTable = sysMainClass.orlTable("Select AC_BRANCH, AC_BRANCH || ' - ' || (Select Branch_Name from sttm_branch where branch_code=  AC_BRANCH) Branch_Name,count(*) count,sum(Received_Amount) Billamount,count(*) * 8 Commission,sum(Received_Amount) - count(*) * 8 NetAmount from T_COLLECTION_BILL  where RECORD_STAT = 'A'  and supervised_date is not null and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end group by AC_BRANCH order by 1")
+            rpt.SetDataSource(dt)
+            'Dim dt2 As DataTable = sysMainClass.orlTable("Select AC_BRANCH, AC_BRANCH || ' - ' || (Select Branch_Name from sttm_branch where branch_code=  AC_BRANCH) Branch_Name,count(*) count,sum(Received_Amount) Billamount,count(*) * 8 Commission,sum(Received_Amount) - count(*) * 8 NetAmount from T_COLLECTION_BILL  where RECORD_STAT = 'A'  and supervised_date is not null and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end group by AC_BRANCH order by 1")
+            'Dim dt2 As DataTable = sysMainClass.orlTable("Select T_COLLECTION_BILL.*,Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,3,4) then 1 end Payment_Mode2,Case when  PAYMENT_MODE = 1 then 'CASH' when PAYMENT_MODE in (2,3,4) then 'CHEQUE' end Payment_Type,(select KE_CODE from T_KELECTRIC_CODE where BRANCH_CODE = lpad(T_COLLECTION_BILL.AC_BRANCH,4,'0')) KE_CODE,(Select Branch_Name from sttm_branch where branch_code=  AC_BRANCH) Branch_Name from T_COLLECTION_BILL  where RECORD_STAT = 'A'  and supervised_date is not null and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end ")
+            Dim dt2 As DataTable = sysMainClass.orlTable("Select T_COLLECTION_BILL.*,Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,3,4) then 1 end Payment_Mode2,Case when  PAYMENT_MODE = 1 then 'CASH' when PAYMENT_MODE in (2,3,4) then 'CHEQUE' end Payment_Type,(select KE_CODE from T_KELECTRIC_CODE where BRANCH_CODE = lpad(T_COLLECTION_BILL.AC_BRANCH,4,'0')) KE_CODE,(Select Branch_Name from sttm_branch where branch_code=  AC_BRANCH) Branch_Name from T_COLLECTION_BILL  where RECORD_STAT = 'A'  and supervised_date is not null and Trunc(SUPERVISED_DATE) = '" & DateTimePicker1.Text & "' and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end ")
+
+            rpt.Subreports.Item(0).SetDataSource(dt2)
+
+            rpt.ExportToDisk(ExportFormatType.Excel, path)
+
+            ' sysMainClass.orlTable("begin Update T_COLLECTION_BILL SET SENDTO = 1 WHERE RECORD_STAT = 'A' and supervised_date is not null and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end ; commit; end;")
+            sysMainClass.orlTable("begin Update T_COLLECTION_BILL SET SENDTO = 1 WHERE RECORD_STAT = 'A' and supervised_date is not null and Trunc(SUPERVISED_DATE) = '" & DateTimePicker1.Text & "' and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end ; commit; end;")
+
+            'MessageBox.Show("File Export Successfully!")
+        End If
+    End Sub
+
+    '---------------------------------------------------------------------------------
+    '------------------------------- New Connection Code -----------------------------
+    '---------------------------------------------------------------------------------
+    Private Sub ToolStripButton3_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles ToolStripButton3.Click
+        Me.DownloadStartNCMManual()
+        'Me.DownloadStartNCMTest()
+    End Sub
+   
+    Private Sub DownloadStartNCM()
+        Try
+            Me.v_TotalRec = 0
+            Dim now1 As DateTime
+            '   If DateTime.Now.DayOfWeek = DayOfWeek.Monday Then
+            'now1 = DateTime.Now.AddDays(-2)
+            'Else
+            Dim dt As DataTable = sysMainClass.orlTable("select max(to_date(to_char(substr(BATCHNO,7,2)) || '/' || to_char(substr(BATCHNO,5,2)) || '/' ||  to_char(substr(BATCHNO,9,4)),'mm/dd/yyyy'))  + 1 BDate from T_KELECT_LOG_NCM a where batchno like 'NCM_%' and LOGDETAIL = 'LoadFileNCM End'")
+            If dt.Rows.Count > 0 And dt.Rows(0).Item(0) & "" <> "" Then
+                DateTimePicker1.Text = dt.Rows(0).Item(0)
+                DateTimePicker1.Format = DateTimePickerFormat.Custom
+                DateTimePicker1.CustomFormat = "dd-MMM-yyyy"
+            Else
+                DateTimePicker1.Text = DateTime.Now.AddDays(-1)
+                DateTimePicker1.Format = DateTimePickerFormat.Custom
+                DateTimePicker1.CustomFormat = "dd-MMM-yyyy"
+            End If
+
+            ' DateTimePicker1.Text = "30-Nov-2016"
+            '' End If
+            While (DateTimePicker1.Text <= DateTime.Now.AddDays(-1))
+                now1 = DateTimePicker1.Text
+                Me.Label1.Visible = True
+                Application.DoEvents()
+                fln = "NCM_" & now1.Day.ToString("00") & now1.Month.ToString("00") & now1.Year.ToString("0000") & ".DAT"
+                If Me.downFileNCM(fln) Then
+                    Application.DoEvents()
+                    Me.PictureBox1.Visible = True
+                    Me.Label2.Visible = True
+                    Application.DoEvents()
+                    If Me.LoadFileNCM(fln) Then
+                        Application.DoEvents()
+                        Me.PictureBox2.Visible = True
+                        Me.Label3.Visible = True
+                        Application.DoEvents()
+                        If Me.ValidateDataNCM(fln) Then
+                            Application.DoEvents()
+                            Me.PictureBox3.Visible = True
+                            Me.Label4.Visible = True
+                            Application.DoEvents()
+                            If Me.SaveDataNCM Then
+                                Me.PictureBox4.Visible = True
+                                Me.lblTotalD.Text = Me.v_TotalRec.ToString
+                            Else
+                                Me.PictureBox4F.Visible = True
+                            End If
+                        Else
+                            Me.PictureBox3F.Visible = True
+                        End If
+                    Else
+                        Me.PictureBox2F.Visible = True
+                    End If
+
+                Else
+                    Me.PictureBox1F.Visible = True
+                End If
+                DateTimePicker1.Text = now1.AddDays(1)
+            End While
+        Catch ex As Exception
+            sysMainClass.errlog(ex)
+        End Try
+        ' Next i
+    End Sub
+
+    Public Function downFileNCM(ByVal fln As String) As Boolean
+        Dim flag As Boolean
+        Dim FTPfln As String = ""
+        Dim v_filenamechk As String = "D:\NewProjects\K-Electric\BillFilesNCM\" & fln
+        Try
+            ' sysMainClass.orlTable(("Insert into Feecoll.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('New Batch downFile Proce Start','New Batch Loading',sysdate,'" & fln & "')"))
+            If Not File.Exists(v_filenamechk) Then
+                Application.DoEvents()
+                flag = False
+
+                FTPfln = "/NC-SDSC-Billing/" & fln
+                Dim FTP_FileName As String = System.IO.Path.GetFileName(FTPfln)
+                Dim regDate As Date = Date.Now()
+                'Make folder for download
+                'Dim storeDirectory As String = "X:\K-Electric\BillFiles\"
+                Dim storeDirectory As String = "D:\NewProjects\K-Electric\BillFilesNCM\"
+                If Not Directory.Exists(storeDirectory) Then
+                    Directory.CreateDirectory(storeDirectory)
+                End If
+
+                Application.DoEvents()
+                Dim FileDown_Path As String = storeDirectory
+                ' Setup session options
+                Dim sessionOptions As New SessionOptions
+                With sessionOptions
+                    .Protocol = Protocol.Ftp
+                    .FtpSecure = FtpSecure.Implicit
+
+                    .HostName = "kescftp.ke.com.pk"
+                    .UserName = "asknc"
+                    .Password = "Ask@5432"
+                    '.HostName = "172.24.9.130"
+                    '.UserName = "ibbtkf"
+                    '.Password = "ibb1234"
+                    '  .SshHostKeyFingerprint = "ssh-dss 1536 19:7c:20:d9:4f:58:ce:74:9b:57:f8:c3:e1:52:31:09"
+                    '.TlsHostCertificateFingerprint = "30:dd:6a:c1:64:3b:05:91:f1:0f:97:81:3e:de:8c:e2:58:15:15:6b"
+                    '.TlsHostCertificateFingerprint = "37:01:31:a8:32:be:73:c2:c9:99:13:8a:ce:74:ef:00:77:75:78:ac"
+                    .TlsHostCertificateFingerprint = ConfigurationSettings.AppSettings("CertKey")
+                    '.FtpSecure = FtpSecure.Implicit
+                    .PortNumber = 34522
+                    '.SshHostKeyFingerprint = "ssh-rsa 2048 xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx"
+                End With
+                Application.DoEvents()
+                Using session As Session = New Session
+                    ' Connect
+                    'session.DisableVersionCheck = True
+                    session.Open(sessionOptions)
+
+                    ' Upload files
+                    Dim transferOptions As New TransferOptions
+                    transferOptions.TransferMode = TransferMode.Binary
+                    Application.DoEvents()
+                    Dim transferResult As TransferOperationResult
+                    transferResult = session.GetFiles(FTPfln, FileDown_Path, False, transferOptions)
+                    Application.DoEvents()
+                    ' Throw on any error
+                    transferResult.Check()
+                    If transferResult.IsSuccess = True Then
+                        flag = True
+                        Return True
+                    End If
+                    Application.DoEvents()
+
+                    '      sysMainClass.orlTable(("Insert into Feecoll.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('New Batch downFile Proce End','New Batch Loading',sysdate,'" & fln & "')"))
+                    Application.DoEvents()
+                    ' Print results
+                    'Dim transfer As TransferEventArgs
+                    'For Each transfer In transferResult.Transfers
+                    'Console.WriteLine("Upload of {0} succeeded", transfer.FileName)
+                    'Next
+                End Using
+            Else
+                flag = True
+                Return flag
+            End If
+        Catch ex As Exception
+            flag = False
+            Return flag
+            '      sysMainClass.orlTable(("Insert into Feecoll.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('New Batch downFile Proce Error','New Batch Loading',sysdate,'" & fln & "')"))
+
+        End Try
+        Return flag
+    End Function
+    Private Function LoadFileNCM(ByVal v_FileName As String) As Boolean
+        Dim flag As Boolean
+        Dim v_fileNameLog As String = v_FileName
+        sysMainClass.orlTable("begin Delete from T_COLL_ELECTRIC_NCM_TEMP; commit; end;")
+        sysMainClass.orlTable(("begin Insert into FeeColl.T_KELECT_LOG_NCM(LOGNAME, LOGDETAIL, CDATE, batchno) values ('LoadFileNCM Proce Start','LoadFileNCM Start',sysdate,'" & v_fileNameLog & "'); commit; end;"))
+
+        v_FileName = "D:\NewProjects\K-Electric\BillFilesNCM\" & v_FileName
+        Try
+            If File.Exists(v_FileName) Then
+                Dim reader As New StreamReader(v_FileName)
+                Dim i As Integer = 0
+                Dim strArray() As String
+                Do While (reader.Peek <> -1)
+                    Dim strline As String = reader.ReadLine.ToString()
+                    Dim strarr(8) As String
+                    If (i <> 0) Then
+                        strarr(0) = strline.ToString().Substring(0, 1)
+                        strarr(1) = strline.ToString().Substring(7, 10)
+                        strarr(2) = strline.ToString().Substring(18, 15)
+                        strarr(3) = strline.ToString().Substring(34, 15)
+                        strarr(4) = strline.ToString().Substring(55, 10)
+                        strarr(5) = strline.ToString().Substring(66, 59)
+                        strarr(6) = strline.ToString().Substring(126, 1)
+                        strarr(7) = strline.ToString().Substring(128, 6)
+                      
+                        sysMainClass.orlTable("begin SP_COLL_ELECTRIC_NCM_INSERT('" & strarr(1) & strarr(4) & "','" & strarr(0) & "','" & strarr(1) & "'," & strarr(2) & "," & strarr(3) & ",'" & strarr(4) & "','" & Replace(strarr(5), "'", "") & "','" & strarr(6) & "','" & strarr(7) & "','KUser'); end;")
+                        '  sysMainClass.orlTable("Insert into FeeColl.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('New Data Loading','New Data Loading',sysdate,'" & strArray(0) & "')")
+                    End If
+                    i += 1
+                Loop
+                sysMainClass.orlTable("begin Insert into FeeColl.T_KELECT_LOG_NCM(LOGNAME, LOGDETAIL, CDATE, batchno) values ('LoadFileNCM Proce End','LoadFileNCM End',sysdate,'" & v_fileNameLog & "'); commit; end;")
+                flag = True
+                Return True
+            End If
+            sysMainClass.orlTable("begin Insert into FeeColl.T_KELECT_LOG_NCM(LOGNAME, LOGDETAIL, CDATE, batchno) values ('LoadFileNCM Proce Error','File Doesnot Exist',sysdate,'" & v_fileNameLog & "'); commit; end;")
+            flag = False
+        Catch ex As Exception
+
+            sysMainClass.orlTable("begin Insert into FeeColl.T_KELECT_LOG_NCM(LOGNAME, LOGDETAIL, CDATE, batchno) values ('LoadFileNCM Proce Error','" & ex.Message & "',sysdate,'" & v_fileNameLog & "'); commit; end;")
+            flag = False
+            Return flag
+
+        End Try
+        Return flag
+    End Function
+    Private Function ValidateDataNCM(ByVal fln As String) As Boolean
+        Dim flag As Boolean = True
+        Return flag
+    End Function
+    Private Function SaveDataNCM() As Boolean
+        Dim flag As Boolean
+        Try
+            '  sysMainClass.orlTable("begin Insert into T_COLL_ELECTRIC_HIST Select *,'SCH_USER',sysdate from T_COLL_ELECTRIC where Account_number in (Select ACCOUNT_NUMBER from T_COLL_ELECTRIC_TEMP); commit; end;")
+            ' sysMainClass.orlTable("begin Delete from T_COLL_ELECTRIC where Account_number in (Select ACCOUNT_NUMBER from T_COLL_ELECTRIC_TEMP); commit; end;")
+            sysMainClass.orlTable("begin Insert into T_COLL_ELECTRIC_NCM Select * from T_COLL_ELECTRIC_NCM_TEMP where APPLICATION_NO  not in (select  APPLICATION_NO from T_COLL_ELECTRIC_NCM); commit; end;")
+            Dim table As DataTable = sysMainClass.orlTable("Select nvl(count(*),0) cnt from T_COLL_ELECTRIC_NCM_TEMP")
+            Me.v_TotalRec = CInt(table.Rows.Item(0).Item("cnt"))
+            sysMainClass.orlTable("begin Delete from T_COLL_ELECTRIC_NCM_TEMP; commit; end;")
+            flag = True
+        Catch exception1 As Exception
+            flag = False
+            Return flag
+
+        End Try
+        Return flag
+    End Function
+
+    Private Sub ToolStripButton4_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles ToolStripButton4.Click
+        Me.UploadStartNCMManual()
+    End Sub
+
+    Private Sub UploadStartNCM()
+        Try
+            Dim now1 As DateTime
+            '   If DateTime.Now.DayOfWeek = DayOfWeek.Monday Then
+            'now1 = DateTime.Now.AddDays(-2)
+            'Else
+            '   For i = 1 To 3
+            Dim dt As DataTable = sysMainClass.orlTable("select max(to_date(to_char(substr(BATCHNO,4,2)) || '/' || to_char(substr(BATCHNO,2,2)) || '/' || to_char(substr(BATCHNO,6,2)),'mm/dd/yy')) + 1 BDate from T_KELECT_LOG_NCM a where batchno like 'A%' and LOGDETAIL = 'UploadFileNCM End'")
+            If dt.Rows.Count > 0 And dt.Rows(0).Item(0) & "" <> "" Then
+                DateTimePicker1.Text = dt.Rows(0).Item(0)
+                DateTimePicker1.Format = DateTimePickerFormat.Custom
+                DateTimePicker1.CustomFormat = "dd-MMM-yyyy"
+            Else
+                DateTimePicker1.Text = DateTime.Now.AddDays(-1)
+                DateTimePicker1.Format = DateTimePickerFormat.Custom
+                DateTimePicker1.CustomFormat = "dd-MMM-yyyy"
+            End If
+
+            While (DateTimePicker1.Text <= DateTime.Now.AddDays(-1))
+                now1 = DateTimePicker1.Text
+
+                Me.v_TotalRec = 0
+                Dim now As DateTime = DateTime.Now
+                Me.lblHeading.Visible = True
+                Me.lblHeading.Text = "Get Payment Data ..."
+                Application.DoEvents()
+                Dim fln As String = String.Concat(New String() {"A", now1.Day.ToString("00"), now1.Month.ToString("00"), now1.Year.ToString("00").Substring(2, 2), "001.DAT"})
+                Dim fln2 As String = "K-ELECTRIC NEW METER COLLECTION MIS DATED " & now1.Day.ToString("00") & "-" & now1.Month.ToString("00") & "-" & now1.Year.ToString("0000") & ".xls"
+
+                If Me.UpFileNCM(fln) Then
+                    Application.DoEvents()
+                    Me.PictureBox1.Visible = True
+                    Me.Label1.Visible = True
+                    Me.Label1.Text = "Generate Payment File"
+                    Application.DoEvents()
+                    If Me.CreateFileNCM(fln) Then
+                        Application.DoEvents()
+                        Me.PictureBox2.Visible = True
+                        Me.Label2.Visible = True
+                        Me.Label2.Text = "Upload on FTP"
+                        Application.DoEvents()
+                        Call CreateExcelNCM_MC()
+                        Call CreateExcelDetailNCM()
+                        Call CreateExcelNCM()
+                        'Call CreateExcelDetail()
+                        If Me.UploadsFTPNCM(fln) Then
+                            'If Me.UploadsFTP(fln2) Then
+                            '    'If Me.UploadsFTP(fln3) Then
+                            '    '    Me.PictureBox3.Visible = True
+                            '    'Else
+                            '    '    Me.PictureBox3F.Visible = True
+                            '    'End If
+                            'Else
+                            '    Me.PictureBox3F.Visible = True
+                            'End If
+                        Else
+                            Me.PictureBox3F.Visible = True
+                        End If
+                    Else
+                        Me.PictureBox2F.Visible = True
+                    End If
+                    Else
+                        Me.PictureBox1F.Visible = True
+                    End If
+                DateTimePicker1.Text = now1.AddDays(1)
+            End While
+        Catch ex As Exception
+            sysMainClass.errlog(ex)
+        End Try
+        ' Next i
+    End Sub
+
+    Public Function UpFileNCM(ByVal fln As String) As Boolean
+        Dim flag As Boolean
+        sysMainClass.orlTable(("begin Insert into FeeColl.T_KELECT_LOG_NCM(LOGNAME, LOGDETAIL, CDATE, batchno) values ('Check Data NCM Proce Start','Check Data NCM Start',sysdate,'" & fln & "'); commit; end;"))
+        Try
+            If (sysMainClass.orlTable("select nvl(count(*),0) cnt from T_COLLECTION_BILL WHERE RECORD_STAT = 'A' and nvl(SENDTO,0) = 0").Rows.Count > 0) Then
+                sysMainClass.orlTable(("begin Insert into FeeColl.T_KELECT_LOG_NCM(LOGNAME, LOGDETAIL, CDATE, batchno) values ('Check Data NCM Proce End','Check Data NCM End',sysdate,'" & fln & "'); commit; end;"))
+                flag = True
+                Return True
+            End If
+        Catch exception1 As Exception
+
+            sysMainClass.orlTable(("begin Insert into FeeColl.T_KELECT_LOG_NCM(LOGNAME, LOGDETAIL, CDATE, batchno) values ('Check Data NCM Proce Error','No Record Found',sysdate,'" & fln & "'); commit; end;"))
+            flag = False
+
+            Return flag
+
+        End Try
+        Return flag
+    End Function
+
+    Private Function CreateFileNCM(ByVal v_FILENAME As String) As Boolean
+        Dim flag As Boolean
+        Dim v_fileNamechk As String = "D:\NewProjects\K-Electric\BillFilesNCM\" & v_FILENAME
+        If Not File.Exists(v_fileNamechk) Then
+
+            sysMainClass.orlTable(("begin Insert into FeeColl.T_KELECT_LOG_NCM(LOGNAME, LOGDETAIL, CDATE, batchno) values ('CreateFileNCM Proce Start','CreateFileNCM Start',sysdate,'" & v_FILENAME & "'); commit; end;"))
+            Dim str As String = ""
+            Dim writer As StreamWriter = Nothing
+            Try
+
+
+                Dim path As String = "D:\NewProjects\K-Electric\BillFilesNCM\"
+                If Not Directory.Exists(path) Then
+                    Directory.CreateDirectory(path)
+                End If
+                str = v_FILENAME
+                Me.Out_FILE_NAME = (path & str)
+                writer = New StreamWriter((path & str), False, Encoding.Default)
+                Dim builder As New StringBuilder
+                'Dim dt As DataTable = sysMainClass.orlTable("Select AC_BRANCH, Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,3,4) then 1 end BatchPayCode ,Trunc(SUPERVISED_DATE) Batch_Date,Count(*) StubCount,sum(RECEIVED_AMOUNT) BatchAmount,(select KE_CODE from T_KELECTRIC_CODE where BRANCH_CODE = lpad(T_COLLECTION_BILL.AC_BRANCH,4,'0')) KE_CODE from T_COLLECTION_BILL  where RECORD_STAT = 'A' and supervised_date is not null and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end GROUP BY AC_BRANCH,Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,3,4) then 1 end, Trunc(SUPERVISED_DATE) Order by AC_BRANCH,Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,3,4) then 1 end")
+                Dim dt As DataTable = sysMainClass.orlTable("Select AC_BRANCH, Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,4) then 1 else 2 end BatchPayCode ," & _
+                                                            "Trunc(SUPERVISED_DATE) Batch_Date,Count(*) StubCount,sum(RECEIVED_AMOUNT)*100 BatchAmount," & _
+                                                            "(select KE_CODE from T_KELECTRIC_CODE where BRANCH_CODE = lpad(a.AC_BRANCH,4,'0')) KE_CODE ," & _
+                                                            "Sum(GST_AMOUNT)*100 BatchGSTAmount" & _
+                                                            " from T_COLLECTION_KELECT_NCM a where RECORD_STAT = 'A' and supervised_date is not null " & _
+                                                            " and Trunc(SUPERVISED_DATE) = '" & DateTimePicker1.Text & "' and nvl(SENDTO,0) = 0 " & _
+                                                            " and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end " & _
+                                                            " GROUP BY AC_BRANCH,Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,4) then 1 else 2 end, " & _
+                                                            " Trunc(SUPERVISED_DATE) Order by AC_BRANCH," & _
+                                                            " Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,4) then 1 else 2 end ")
+                Dim num4 As Integer = (dt.Rows.Count - 1)
+                Dim i As Integer = 0
+                Do While (i <= num4)
+                    writer.Write(Strings.Space(8))
+                    writer.Write("?")
+                    writer.Write(dt.Rows.Item(i).Item("BatchPayCode").ToString)
+                    Dim time As DateTime = CDate(dt.Rows.Item(i).Item("Batch_Date"))
+                    Dim introduced22 As String = time.Day.ToString("00")
+                    Dim introduced23 As String = time.Month.ToString("00")
+                    writer.Write((introduced22 & introduced23 & time.Year.ToString("00").Substring(2, 2)))
+                    writer.Write(dt.Rows.Item(i).Item("KE_CODE").ToString.PadLeft(4, "0"))
+                    writer.Write("0001")
+                    writer.Write(dt.Rows.Item(i).Item("StubCount").ToString.PadLeft(4, "0"))
+                    writer.Write(dt.Rows.Item(i).Item("BatchAmount").ToString.PadLeft(15, "0"))
+                    writer.Write(dt.Rows.Item(i).Item("BatchGSTAmount").ToString.PadLeft(15, "0"))
+                    writer.Write(ChrW(13) & ChrW(10))
+                    'Dim dt2 As DataTable = sysMainClass.orlTable("select * from (select BUYYER_NO,AC_BRANCH,Trunc(SUPERVISED_DATE) Payment_Date,RECEIVED_AMOUNT, Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,3,4) then 1 end Payment_Mode,CONSUMER_NUMBER,nvl(BILL_NO,'0') BILL_NO,nvl(DUE_DATE,Trunc(SUPERVISED_DATE)) DUE_DATE,NET_AMOUNT_RA,GROSS_AMOUNT_RA,(select KE_CODE from T_KELECTRIC_CODE where BRANCH_CODE = lpad(T_COLLECTION_BILL.AC_BRANCH,4,'0')) KE_CODE from T_COLLECTION_BILL WHERE RECORD_STAT = 'A' and supervised_date is not null and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end ) x   WHERE  x.AC_BRANCH = '" & dt.Rows.Item(i).Item("AC_BRANCH") & "' and Trunc(x.Payment_Date) = '" & DateTime.Parse(dt.Rows.Item(i).Item("Batch_Date")).ToString("dd-MMM-yyyy") & "' and PAYMENT_MODE = '" & dt.Rows.Item(i).Item("BatchPayCode") & "'")
+                    Dim dt2 As DataTable = sysMainClass.orlTable("select * from (select APPLICATION_NO,AC_BRANCH,Trunc(SUPERVISED_DATE) Payment_Date,CASE_ID," & _
+                                                                "RECEIVED_AMOUNT*100 RECEIVED_AMOUNT,GST_AMOUNT*100 GST_AMOUNT," & _
+                                                                "Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,4) then 1 else 2 end  Payment_Mode," & _
+                                                                "DOC_CODE TCode,'777' ZoneCode,substr(CONSUMER_NAME,1,40) CONSUMER_NAME,LOAD_TYPE,'000000000' Job_Number," & _
+                                                                "(select KE_CODE from T_KELECTRIC_CODE " & _
+                                                                " where BRANCH_CODE = lpad(T_COLLECTION_KELECT_NCM.AC_BRANCH,4,'0')) KE_CODE " & _
+                                                                " from T_COLLECTION_KELECT_NCM WHERE RECORD_STAT = 'A' and supervised_date is not null " & _
+                                                                " and Trunc(SUPERVISED_DATE) = '" & DateTimePicker1.Text & "' and nvl(SENDTO,0) = 0 " & _
+                                                                " and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end ) x" & _
+                                                                " WHERE  x.AC_BRANCH = '" & dt.Rows.Item(i).Item("AC_BRANCH") & "'" & _
+                                                                " and Trunc(x.Payment_Date) = '" & DateTime.Parse(dt.Rows.Item(i).Item("Batch_Date")).ToString("dd-MMM-yyyy") & "'" & _
+                                                                " and PAYMENT_MODE = '" & dt.Rows.Item(i).Item("BatchPayCode") & "'")
+
+                    Dim num8 As Integer = (dt2.Rows.Count - 1)
+                    Dim j As Integer = 0
+                    Do While (j <= num8)
+                        writer.Write(Strings.Space(8))
+                        writer.Write("X")
+                        writer.Write(Strings.Space(4))
+                        writer.Write(dt2.Rows.Item(j).Item("APPLICATION_NO").ToString.PadLeft(12, "0").PadRight(13, "9"))
+                        writer.Write(Strings.Space(2))
+                        writer.Write(dt2.Rows.Item(j).Item("KE_CODE").ToString.PadLeft(4, "0"))
+                        Dim time3 As DateTime = CDate(dt2.Rows.Item(j).Item("Payment_Date"))
+                        Dim introduced24 As String = time3.Day.ToString("00")
+                        Dim introduced25 As String = time3.Month.ToString("00")
+                        writer.Write((introduced24 & introduced25 & time3.Year.ToString("00").Substring(2, 2)))
+                        writer.Write(Strings.Space(2))
+                        Dim num7 As Integer = (j + 1)
+                        writer.Write(num7.ToString.PadLeft(4, "0"))
+                        writer.Write(dt2.Rows.Item(j).Item("CASE_ID").ToString.PadLeft(12, "0"))
+                        writer.Write(dt2.Rows.Item(j).Item("RECEIVED_AMOUNT").ToString.PadLeft(15, "0"))
+                        writer.Write(dt2.Rows.Item(j).Item("GST_AMOUNT").ToString.PadLeft(15, "0"))
+                        writer.Write(Strings.Space(3))
+                        writer.Write(dt2.Rows.Item(j).Item("Payment_Mode").ToString)
+                        writer.Write(dt2.Rows.Item(j).Item("TCode").ToString)
+                        writer.Write(dt2.Rows.Item(j).Item("ZoneCode").ToString)
+                        writer.Write(dt2.Rows.Item(j).Item("CONSUMER_NAME").ToString.PadRight(40, " "))
+                        writer.Write(dt2.Rows.Item(j).Item("Job_Number").ToString)
+                        writer.Write(Strings.Space(6))
+                        writer.Write(Strings.Space(1))
+                        writer.Write(dt2.Rows.Item(j).Item("LOAD_TYPE").ToString)
+                        writer.Write(ChrW(13) & ChrW(10))
+                        j += 1
+                    Loop
+                    i += 1
+                Loop
+                writer.Flush()
+                writer.Close()
+                sysMainClass.orlTable(("begin Insert into FeeColl.T_KELECT_LOG_NCM(LOGNAME, LOGDETAIL, CDATE, batchno) values ('CreateFileNMC Proce End','CreateFileNMC End',sysdate,'" & v_FILENAME & "'); commit; end;"))
+                flag = True
+
+
+            Catch exception1 As Exception
+
+                sysMainClass.orlTable(("begin Insert into FeeColl.T_KELECT_LOG_NCM(LOGNAME, LOGDETAIL, CDATE, batchno) values ('CreateFileNMC Proce Error','CreateFileNMC Error',sysdate,'" & v_FILENAME & "'); commit; end;"))
+                writer.Close()
+                flag = False
+                Return flag
+
+            End Try
+        Else
+            flag = True
+        End If
+        Return flag
+
+    End Function
+    Public Function UploadsFTPNCM(ByVal fln As String) As Boolean
+        Dim flag As Boolean
+        Dim FTPfln As String = ""
+        '  sysMainClass.orlTable(("Insert into FeeColl.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('UploadsFTP File Proce Start','UploadsFTP File Start',sysdate,'" & fln & "')"))
+        sysMainClass.orlTable(("begin Insert into FeeColl.T_KELECT_LOG_NCM(LOGNAME, LOGDETAIL, CDATE, batchno) values ('UploadFileNCM Proce Start','UploadFileNCM Start',sysdate,'" & fln & "'); commit; end;"))
+
+        Try
+            Application.DoEvents()
+            flag = True
+
+            FTPfln = fln
+            Dim FTP_FileName As String = System.IO.Path.GetFileName(FTPfln)
+            Dim regDate As Date = Date.Now()
+            'Make folder for download
+            ' Dim storeDirectory As String = "D:\NewProjects\K-Electric\BillFiles\"
+            'If Not Directory.Exists(storeDirectory) Then
+            'Directory.CreateDirectory(storeDirectory)
+            'End If
+
+            Application.DoEvents()
+            'Dim FileDown_Path As String = "X:\K-Electric\BillFiles\" & FTPfln
+            Dim FileDown_Path As String = "D:\NewProjects\K-Electric\BillFilesNCM\" & FTPfln
+            ' Setup session options
+            Dim sessionOptions As New SessionOptions
+            With sessionOptions
+                .Protocol = Protocol.Ftp
+                .FtpSecure = FtpSecure.Implicit
+
+                .HostName = "kescftp.ke.com.pk"
+                .UserName = "asknc"
+                .Password = "Ask@5432"
+                '.HostName = "172.24.9.130"
+                '.UserName = "ibbtkf"
+                '.Password = "ibb1234"
+                '  .SshHostKeyFingerprint = "ssh-dss 1536 19:7c:20:d9:4f:58:ce:74:9b:57:f8:c3:e1:52:31:09"
+                '.TlsHostCertificateFingerprint = "30:dd:6a:c1:64:3b:05:91:f1:0f:97:81:3e:de:8c:e2:58:15:15:6b"
+                '.TlsHostCertificateFingerprint = "37:01:31:a8:32:be:73:c2:c9:99:13:8a:ce:74:ef:00:77:75:78:ac"
+                .TlsHostCertificateFingerprint = ConfigurationSettings.AppSettings("CertKey")
+                '.FtpSecure = FtpSecure.Implicit
+                .PortNumber = 34522
+                '.SshHostKeyFingerprint = "ssh-rsa 2048 xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx"
+            End With
+            Application.DoEvents()
+            Using session As Session = New Session
+                ' Connect
+                'session.DisableVersionCheck = True
+                session.Open(sessionOptions)
+
+                ' Upload files
+                Dim transferOptions As New TransferOptions
+                transferOptions.TransferMode = TransferMode.Binary
+                Application.DoEvents()
+                Dim transferResult As TransferOperationResult
+                transferResult = session.PutFiles(FileDown_Path, "/NC-ASKeCollection/", False, transferOptions)
+                Application.DoEvents()
+                ' Throw on any error
+                transferResult.Check()
+                If transferResult.IsSuccess = True Then
+                    sysMainClass.orlTable(("begin Insert into FeeColl.T_KELECT_LOG_NCM(LOGNAME, LOGDETAIL, CDATE, batchno) values ('UploadFileNCM Proce End','UploadFileNCM End',sysdate,'" & fln & "'); commit; end;"))
+                    flag = True
+                    Return True
+                End If
+                Application.DoEvents()
+
+                '    sysMainClass.orlTable(("Insert into Feecoll.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('New Batch UpFile Proce End','New Batch Loading',sysdate,'" & fln & "')"))
+                Application.DoEvents()
+                ' Print results
+                'Dim transfer As TransferEventArgs
+                'For Each transfer In transferResult.Transfers
+                'Console.WriteLine("Upload of {0} succeeded", transfer.FileName)
+                'Next
+            End Using
+
+
+        Catch exception1 As Exception
+            sysMainClass.orlTable(("begin Insert into FeeColl.T_KELECT_LOG_NCM(LOGNAME, LOGDETAIL, CDATE, batchno) values ('UploadFileNCM Proce Error','UploadFileNCM Error',sysdate,'" & fln & "'); commit; end;"))
+
+            '      sysMainClass.orlTable(("Insert into FeeColl.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('UploadsFTP File Proce Loaded Error','UploadsFTP File Loaded Error',sysdate,'" & fln & "')"))
+            flag = False
+
+            Return flag
+
+        End Try
+        Return flag
+    End Function
+    Private Sub CreateExcelNCM()
+        Dim now1 As DateTime
+        '   If DateTime.Now.DayOfWeek = DayOfWeek.Monday Then
+        'now1 = DateTime.Now.AddDays(-2)
+        'Else
+        now1 = DateTimePicker1.Text
+
+        Dim path As String = "D:\NewProjects\K-Electric\BillFilesNCM\K-ELECTRIC NEW METER COLLECTION MIS DATED " & now1.Day.ToString("00") & now1.Month.ToString("00") & now1.Year.ToString("0000") & ".xls"
+        Dim strFileName As String = path
+        'If System.IO.File.Exists(strFileName) Then
+        '    System.IO.File.Delete(strFileName)
+        'End If
+        If Not System.IO.File.Exists(strFileName) Then
+            Dim rpt As New NCMExcelDetail
+
+            'Dim dt As DataTable = sysMainClass.orlTable("Select T_COLLECTION_BILL.*,Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,3,4) then 1 end Payment_Mode2,Case when  PAYMENT_MODE = 1 then 'CASH' when PAYMENT_MODE in (2,3,4) then 'CHEQUE' end Payment_Type,(select KE_CODE from T_KELECTRIC_CODE where BRANCH_CODE = lpad(T_COLLECTION_BILL.AC_BRANCH,4,'0')) KE_CODE,(Select Branch_Name from sttm_branch where branch_code=  AC_BRANCH) Branch_Name from T_COLLECTION_BILL  where RECORD_STAT = 'A'  and supervised_date is not null and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end ")
+            Dim dt As DataTable = sysMainClass.orlTable("select rownum,Case_ID,Application_No,SUPERVISED_DATE," & _
+                                                        " Received_Amount from  T_COLLECTION_KELECT_NCM" & _
+                                                        " WHERE RECORD_STAT = 'A' and supervised_date is not null " & _
+                                                        " and Trunc(SUPERVISED_DATE) = '" & DateTimePicker1.Text & "' and nvl(SENDTO,0) = 0 " & _
+                                                        " and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end")
+            'Dim dt As DataTable = sysMainClass.orlTable("Select AC_BRANCH, AC_BRANCH || ' - ' || (Select Branch_Name from sttm_branch where branch_code=  AC_BRANCH) Branch_Name,count(*) count,sum(Received_Amount) Billamount,count(*) * 8 Commission,sum(Received_Amount) - count(*) * 8 NetAmount from T_COLLECTION_BILL  where RECORD_STAT = 'A'  and supervised_date is not null and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end group by AC_BRANCH order by 1")
+            rpt.SetDataSource(dt)
+            'Dim dt2 As DataTable = sysMainClass.orlTable("Select AC_BRANCH, AC_BRANCH || ' - ' || (Select Branch_Name from sttm_branch where branch_code=  AC_BRANCH) Branch_Name,count(*) count,sum(Received_Amount) Billamount,count(*) * 8 Commission,sum(Received_Amount) - count(*) * 8 NetAmount from T_COLLECTION_BILL  where RECORD_STAT = 'A'  and supervised_date is not null and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end group by AC_BRANCH order by 1")
+            'Dim dt2 As DataTable = sysMainClass.orlTable("Select T_COLLECTION_BILL.*,Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,3,4) then 1 end Payment_Mode2,Case when  PAYMENT_MODE = 1 then 'CASH' when PAYMENT_MODE in (2,3,4) then 'CHEQUE' end Payment_Type,(select KE_CODE from T_KELECTRIC_CODE where BRANCH_CODE = lpad(T_COLLECTION_BILL.AC_BRANCH,4,'0')) KE_CODE,(Select Branch_Name from sttm_branch where branch_code=  AC_BRANCH) Branch_Name from T_COLLECTION_BILL  where RECORD_STAT = 'A'  and supervised_date is not null and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end ")
+
+            rpt.ExportToDisk(ExportFormatType.Excel, path)
+            ' sysMainClass.orlTable("begin Update T_COLLECTION_BILL SET SENDTO = 1 WHERE RECORD_STAT = 'A' and supervised_date is not null and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end ; commit; end;")
+            sysMainClass.orlTable("begin Update T_COLLECTION_KELECT_NCM SET SENDTO = 1 WHERE RECORD_STAT = 'A'" & _
+                                   " and supervised_date is not null " & _
+                                   " and Trunc(SUPERVISED_DATE) = '" & DateTimePicker1.Text & "' and " & _
+                                   " nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  " & _
+                                   " PAYMENT_MODE = 3 then 'SUCC' else ' ' end ; commit; end;")
+
+            'MessageBox.Show("File Export Successfully!")
+        End If
+    End Sub
+    Private Sub CreateExcelNCM_MC()
+        Dim now1 As DateTime
+        '   If DateTime.Now.DayOfWeek = DayOfWeek.Monday Then
+        'now1 = DateTime.Now.AddDays(-2)
+        'Else
+        now1 = DateTimePicker1.Text
+
+        Dim path As String = "D:\NewProjects\K-Electric\BillFilesNCM\NCM MIS CONTROL" & now1.Day.ToString("00") & now1.Month.ToString("00") & now1.Year.ToString("0000") & ".xls"
+        Dim strFileName As String = path
+        'If System.IO.File.Exists(strFileName) Then
+        '    System.IO.File.Delete(strFileName)
+        'End If
+        If Not System.IO.File.Exists(strFileName) Then
+            Dim excel As New Excel.Application
+            Dim wBook As Excel.Workbook
+            Dim wSheet As Excel.Worksheet
+
+            wBook = excel.Workbooks.Add()
+            wSheet = wBook.ActiveSheet()
+
+            'Dim dt As System.Data.DataTable = sysMainClass.orlTable("Select Trunc(SUPERVISED_DATE) tDate,sum(RECEIVED_AMOUNT)  ScrollAmount,sum(RECEIVED_AMOUNT) FundAmount from T_COLLECTION_BILL  where RECORD_STAT = 'A' and supervised_date is not null and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end  GROUP BY Trunc(SUPERVISED_DATE)")
+            Dim dt As System.Data.DataTable = sysMainClass.orlTable("Select Trunc(SUPERVISED_DATE) tDate,sum(RECEIVED_AMOUNT)  ScrollAmount,sum(RECEIVED_AMOUNT) FundAmount from T_COLLECTION_KELECT_NCM  where RECORD_STAT = 'A' and supervised_date is not null and Trunc(SUPERVISED_DATE) = '" & DateTimePicker1.Text & "' and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end  GROUP BY Trunc(SUPERVISED_DATE)")
+            Dim dc As System.Data.DataColumn
+            Dim dr As System.Data.DataRow
+            Dim colIndex As Integer = 0
+            Dim rowIndex As Integer = 0
+            wSheet.Range(wSheet.Cells(1, 1), wSheet.Cells(1, 3)).Merge()
+            'wSheet.Range(wSheet.Cells(1, 1), wSheet.Cells(1, 1)).VerticalAlignment = excel.Constants.xlCenter
+
+            wSheet.Cells(1, 1) = "K-Electric"
+            wSheet.Cells(2, colIndex + 1) = "Date"
+            wSheet.Cells(2, colIndex + 2) = "Scroll Amount"
+            wSheet.Cells(2, colIndex + 3) = "Fund Amount"
+
+            'For Each dc In dt.Columns
+            '    colIndex = colIndex + 1
+            '    wSheet.Cells(2, colIndex) = dc.ColumnName
+            'Next
+
+            For Each dr In dt.Rows
+                rowIndex = rowIndex + 3
+                colIndex = 0
+                For Each dc In dt.Columns
+                    colIndex = colIndex + 1
+                    wSheet.Cells(rowIndex, colIndex) = dr(dc.ColumnName)
+                Next
+            Next
+
+            wSheet.Range(wSheet.Cells(5, 1), wSheet.Cells(5, 3)).Merge()
+            ' wSheet.Range(wSheet.Cells(5, 1), wSheet.Cells(5, 1)).VerticalAlignment = excel.Constants.xlCenter
+
+            wSheet.Cells(5, 1) = "As Per Scroll"
+            wSheet.Cells(6, 1) = "Date"
+            wSheet.Cells(6, 2) = "Total Stubs"
+            wSheet.Cells(6, 3) = "Total Amount"
+
+            'Dim dt2 As System.Data.DataTable = sysMainClass.orlTable("Select Trunc(SUPERVISED_DATE) tDate,Count(*)  TotalStubs,sum(RECEIVED_AMOUNT) FundAmount from T_COLLECTION_BILL  where RECORD_STAT = 'A' and supervised_date is not null and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end  GROUP BY Trunc(SUPERVISED_DATE)")
+            Dim dt2 As System.Data.DataTable = sysMainClass.orlTable("Select Trunc(SUPERVISED_DATE) tDate,Count(*)  TotalStubs,sum(RECEIVED_AMOUNT) FundAmount from T_COLLECTION_KELECT_NCM  where RECORD_STAT = 'A' and supervised_date is not null and Trunc(SUPERVISED_DATE) = '" & DateTimePicker1.Text & "' and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end  GROUP BY Trunc(SUPERVISED_DATE)")
+
+            Dim dc2 As System.Data.DataColumn
+            Dim dr2 As System.Data.DataRow
+            For Each dr2 In dt2.Rows
+                rowIndex = 7
+                colIndex = 0
+                For Each dc2 In dt2.Columns
+                    colIndex = colIndex + 1
+                    wSheet.Cells(rowIndex, colIndex) = dr2(dc2.ColumnName)
+                Next
+            Next
+
+
+            wSheet.Columns.AutoFit()
+            'wBook.SaveAs(strFileName)
+            wBook.SaveCopyAs(strFileName)
+            ReleaseObject(wSheet)
+            wBook.Close(False)
+            ReleaseObject(wBook)
+            excel.Quit()
+            ReleaseObject(excel)
+            GC.Collect()
+            '  sysMainClass.orlTable("begin Update T_COLLECTION_BILL SET SENDTO = 1 WHERE RECORD_STAT = 'A' and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end ; commit; end;")
+        End If
+        ' MessageBox.Show("File Export Successfully!")
+    End Sub
+    Private Sub CreateExcelDetailNCM()
+        Dim now1 As DateTime
+        '   If DateTime.Now.DayOfWeek = DayOfWeek.Monday Then
+        'now1 = DateTime.Now.AddDays(-2)
+        'Else
+        now1 = DateTimePicker1.Text
+
+        Dim path As String = "D:\NewProjects\K-Electric\BillFilesNCM\KESCUBCSScrollandSumDailyReport" & now1.Day.ToString("00") & now1.Month.ToString("00") & now1.Year.ToString("0000") & ".xls"
+        Dim strFileName As String = path
+        'If System.IO.File.Exists(strFileName) Then
+        '    System.IO.File.Delete(strFileName)
+        'End If
+        If Not System.IO.File.Exists(strFileName) Then
+            Dim rpt As New ExcelDetailNCM
+
+            'Dim dt As DataTable = sysMainClass.orlTable("Select T_COLLECTION_BILL.*,Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,3,4) then 1 end Payment_Mode2,Case when  PAYMENT_MODE = 1 then 'CASH' when PAYMENT_MODE in (2,3,4) then 'CHEQUE' end Payment_Type,(select KE_CODE from T_KELECTRIC_CODE where BRANCH_CODE = lpad(T_COLLECTION_BILL.AC_BRANCH,4,'0')) KE_CODE,(Select Branch_Name from sttm_branch where branch_code=  AC_BRANCH) Branch_Name from T_COLLECTION_BILL  where RECORD_STAT = 'A'  and supervised_date is not null and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end ")
+            Dim dt As DataTable = sysMainClass.orlTable("Select T_COLLECTION_KELECT_NCM.*,Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,3,4) then 1 end Payment_Mode2,Case when  PAYMENT_MODE = 1 then 'CASH' when PAYMENT_MODE in (2,3,4) then 'CHEQUE' end Payment_Type,(select KE_CODE from T_KELECTRIC_CODE where BRANCH_CODE = lpad(T_COLLECTION_KELECT_NCM.AC_BRANCH,4,'0')) KE_CODE,(Select Branch_Name from sttm_branch where branch_code=  AC_BRANCH) Branch_Name from T_COLLECTION_KELECT_NCM  where RECORD_STAT = 'A'  and supervised_date is not null and Trunc(SUPERVISED_DATE) = '" & DateTimePicker1.Text & "'  and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end ")
+            'Dim dt As DataTable = sysMainClass.orlTable("Select AC_BRANCH, AC_BRANCH || ' - ' || (Select Branch_Name from sttm_branch where branch_code=  AC_BRANCH) Branch_Name,count(*) count,sum(Received_Amount) Billamount,count(*) * 8 Commission,sum(Received_Amount) - count(*) * 8 NetAmount from T_COLLECTION_BILL  where RECORD_STAT = 'A'  and supervised_date is not null and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end group by AC_BRANCH order by 1")
+            rpt.SetDataSource(dt)
+            'Dim dt2 As DataTable = sysMainClass.orlTable("Select AC_BRANCH, AC_BRANCH || ' - ' || (Select Branch_Name from sttm_branch where branch_code=  AC_BRANCH) Branch_Name,count(*) count,sum(Received_Amount) Billamount,count(*) * 8 Commission,sum(Received_Amount) - count(*) * 8 NetAmount from T_COLLECTION_BILL  where RECORD_STAT = 'A'  and supervised_date is not null and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end group by AC_BRANCH order by 1")
+            'Dim dt2 As DataTable = sysMainClass.orlTable("Select T_COLLECTION_BILL.*,Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,3,4) then 1 end Payment_Mode2,Case when  PAYMENT_MODE = 1 then 'CASH' when PAYMENT_MODE in (2,3,4) then 'CHEQUE' end Payment_Type,(select KE_CODE from T_KELECTRIC_CODE where BRANCH_CODE = lpad(T_COLLECTION_BILL.AC_BRANCH,4,'0')) KE_CODE,(Select Branch_Name from sttm_branch where branch_code=  AC_BRANCH) Branch_Name from T_COLLECTION_BILL  where RECORD_STAT = 'A'  and supervised_date is not null and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end ")
+            Dim dt2 As DataTable = sysMainClass.orlTable("Select T_COLLECTION_KELECT_NCM.*,Case when  PAYMENT_MODE = 1 then 0 when PAYMENT_MODE in (2,3,4) then 1 end Payment_Mode2,Case when  PAYMENT_MODE = 1 then 'CASH' when PAYMENT_MODE in (2,3,4) then 'CHEQUE' end Payment_Type,(select KE_CODE from T_KELECTRIC_CODE where BRANCH_CODE = lpad(T_COLLECTION_KELECT_NCM.AC_BRANCH,4,'0')) KE_CODE,(Select Branch_Name from sttm_branch where branch_code=  AC_BRANCH) Branch_Name from T_COLLECTION_KELECT_NCM  where RECORD_STAT = 'A'  and supervised_date is not null and Trunc(SUPERVISED_DATE) = '" & DateTimePicker1.Text & "' and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end ")
+
+            rpt.Subreports.Item(0).SetDataSource(dt2)
+
+            rpt.ExportToDisk(ExportFormatType.Excel, path)
+
+            ' sysMainClass.orlTable("begin Update T_COLLECTION_BILL SET SENDTO = 1 WHERE RECORD_STAT = 'A' and supervised_date is not null and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end ; commit; end;")
+            'sysMainClass.orlTable("begin Update T_COLLECTION_BILL SET SENDTO = 1 WHERE RECORD_STAT = 'A' and supervised_date is not null and Trunc(SUPERVISED_DATE) = '" & DateTimePicker1.Text & "' and nvl(SENDTO,0) = 0 and nvl(CLEARING_STATUS,' ') = case when  PAYMENT_MODE = 3 then 'SUCC' else ' ' end ; commit; end;")
+
+            'MessageBox.Show("File Export Successfully!")
+        End If
+    End Sub
+    '------------------- TOK Files -----------------------'
+    Private Sub DownloadStartTOK()
+        Try
+            Me.v_TotalRec = 0
+            Dim now1 As DateTime
+            '   If DateTime.Now.DayOfWeek = DayOfWeek.Monday Then
+            'now1 = DateTime.Now.AddDays(-2)
+            'Else
+            Dim dt As DataTable = sysMainClass.orlTable("select max(to_date(to_char(substr(BATCHNO,19,2)) || '/' || to_char(substr(BATCHNO,21,2)) || '/' ||  to_char(substr(BATCHNO,15,4)),'mm/dd/yyyy'))  + 1 BDate from T_KELECT_LOG a where batchno like 'KELECTRIC.TOK%' and LOGDETAIL = 'LoadTxtFile End'")
+            If dt.Rows.Count > 0 And dt.Rows(0).Item(0) & "" <> "" Then
+                DateTimePicker1.Text = dt.Rows(0).Item(0)
+                DateTimePicker1.Format = DateTimePickerFormat.Custom
+                DateTimePicker1.CustomFormat = "dd-MMM-yyyy"
+            Else
+                DateTimePicker1.Text = DateTime.Now.AddDays(-1)
+                DateTimePicker1.Format = DateTimePickerFormat.Custom
+                DateTimePicker1.CustomFormat = "dd-MMM-yyyy"
+            End If
+
+
+            '' End If
+            While (DateTimePicker1.Text <= DateTime.Now.AddDays(-1))
+                now1 = DateTimePicker1.Text
+                Me.Label1.Visible = True
+                Application.DoEvents()
+                fln = "KELECTRIC.TOK." & now1.Year.ToString("0000") & now1.Month.ToString("00") & now1.Day.ToString("00") & ".TXT"
+                If Me.downFileTOK(fln) Then
+                    Application.DoEvents()
+                    Me.PictureBox1.Visible = True
+                    Me.Label2.Visible = True
+                    Application.DoEvents()
+                    If Me.LoadTxtFileTOK(fln) Then
+                        Application.DoEvents()
+                        Me.PictureBox2.Visible = True
+                        Me.Label3.Visible = True
+                        Application.DoEvents()
+                        If Me.ValidateDataTOK(fln) Then
+                            Application.DoEvents()
+                            Me.PictureBox3.Visible = True
+                            Me.Label4.Visible = True
+                            Application.DoEvents()
+                            If Me.SaveDataTOK Then
+                                Me.PictureBox4.Visible = True
+                                Me.lblTotalD.Text = Me.v_TotalRec.ToString
+                            Else
+                                Me.PictureBox4F.Visible = True
+                            End If
+                        Else
+                            Me.PictureBox3F.Visible = True
+                        End If
+                    Else
+                        Me.PictureBox2F.Visible = True
+                    End If
+
+                Else
+                    Me.PictureBox1F.Visible = True
+                End If
+                DateTimePicker1.Text = now1.AddDays(1)
+            End While
+        Catch ex As Exception
+            sysMainClass.errlog(ex)
+        End Try
+        ' Next i
+    End Sub
+
+    Public Function downFileTOK(ByVal fln As String) As Boolean
+        Dim flag As Boolean
+        Dim FTPfln As String = ""
+        Dim v_filenamechk As String = "D:\NewProjects\K-Electric\BillFiles\" & fln
+
+        Try
+            ' sysMainClass.orlTable(("Insert into Feecoll.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('New Batch downFile Proce Start','New Batch Loading',sysdate,'" & fln & "')"))
+            If Not File.Exists(v_filenamechk) Then
+                Application.DoEvents()
+                flag = False
+
+                FTPfln = "/CURRENT_FILES  (DIB)/" & fln
+                Dim FTP_FileName As String = System.IO.Path.GetFileName(FTPfln)
+                Dim regDate As Date = Date.Now()
+                'Make folder for download
+                'Dim storeDirectory As String = "X:\K-Electric\BillFiles\"
+                Dim storeDirectory As String = "D:\NewProjects\K-Electric\BillFiles\"
+                If Not Directory.Exists(storeDirectory) Then
+                    Directory.CreateDirectory(storeDirectory)
+                End If
+
+                Application.DoEvents()
+                Dim FileDown_Path As String = storeDirectory
+                ' Setup session options
+                Dim sessionOptions As New SessionOptions
+                With sessionOptions
+                    .Protocol = Protocol.Ftp
+                    .FtpSecure = FtpSecure.Implicit
+
+                    .HostName = "kescftp.ke.com.pk"
+                    .UserName = "askari"
+                    .Password = "Askari@862"
+                    '.HostName = "172.24.9.130"
+                    '.UserName = "ibbtkf"
+                    '.Password = "ibb1234"
+                    '  .SshHostKeyFingerprint = "ssh-dss 1536 19:7c:20:d9:4f:58:ce:74:9b:57:f8:c3:e1:52:31:09"
+                    '.TlsHostCertificateFingerprint = "30:dd:6a:c1:64:3b:05:91:f1:0f:97:81:3e:de:8c:e2:58:15:15:6b"
+                    '.TlsHostCertificateFingerprint = "37:01:31:a8:32:be:73:c2:c9:99:13:8a:ce:74:ef:00:77:75:78:ac"
+                    .TlsHostCertificateFingerprint = ConfigurationSettings.AppSettings("CertKey")
+                    '.FtpSecure = FtpSecure.Implicit
+                    .PortNumber = 34522
+                    '.SshHostKeyFingerprint = "ssh-rsa 2048 xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx"
+                End With
+                Application.DoEvents()
+                Using session As Session = New Session
+                    ' Connect
+                    'session.DisableVersionCheck = True
+                    session.Open(sessionOptions)
+
+                    ' Upload files
+                    Dim transferOptions As New TransferOptions
+                    transferOptions.TransferMode = TransferMode.Binary
+                    Application.DoEvents()
+                    Dim transferResult As TransferOperationResult
+                    transferResult = session.GetFiles(FTPfln, FileDown_Path, False, transferOptions)
+                    Application.DoEvents()
+                    ' Throw on any error
+                    transferResult.Check()
+                    If transferResult.IsSuccess = True Then
+                        flag = True
+                        Return True
+                    End If
+                    Application.DoEvents()
+
+                    '      sysMainClass.orlTable(("Insert into Feecoll.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('New Batch downFile Proce End','New Batch Loading',sysdate,'" & fln & "')"))
+                    Application.DoEvents()
+                    ' Print results
+                    'Dim transfer As TransferEventArgs
+                    'For Each transfer In transferResult.Transfers
+                    'Console.WriteLine("Upload of {0} succeeded", transfer.FileName)
+                    'Next
+                End Using
+            Else
+                flag = True
+                Return flag
+            End If
+        Catch ex As Exception
+            flag = False
+            Return flag
+            '      sysMainClass.orlTable(("Insert into Feecoll.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('New Batch downFile Proce Error','New Batch Loading',sysdate,'" & fln & "')"))
+
+        End Try
+        Return flag
+    End Function
+
+    Private Function LoadTxtFileTOK(ByVal v_FileName As String) As Boolean
+        Dim flag As Boolean
+        Dim v_filenamelog As String = v_FileName
+        sysMainClass.orlTable("begin Delete from T_COLL_ELECTRIC_TEMP; commit; end;")
+        sysMainClass.orlTable(("begin Insert into FeeColl.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('LoadTxtFile Proce Start','LoadTxtFile Start',sysdate,'" & v_FileName & "'); commit; end;"))
+        v_FileName = "D:\NewProjects\K-Electric\BillFiles\" & v_FileName
+        Try
+            If File.Exists(v_FileName) Then
+                Dim reader As New StreamReader(v_FileName)
+                Dim i As Integer = 0
+                Do While (reader.Peek <> -1)
+                    Dim strArray As String() = reader.ReadLine.Split("|")
+                    If ((i <> 0) And Not strArray(0).Contains("***EOF***")) Then
+                        sysMainClass.orlTable("begin SP_COLL_ELECTRIC_INSERT('" & strArray(0) & strArray(4) & "','" & strArray(0) & "','" & strArray(1) & "','" & Replace(strArray(2), "'", "''") & "','" & strArray(3) & "','" & strArray(4) & "','" & DateTime.Parse(Me.correctDate(strArray(5))).ToString("dd-MMM-yyyy") & "','" & DateTime.Parse(Me.correctDate(strArray(6))).ToString("dd-MMM-yyyy") & "'," & strArray(7) & "," & strArray(8) & "," & strArray(9) & "," & strArray(10) & "," & strArray(11) & ",'KUser','" & DateTime.Parse(DateTimePicker1.Text).ToString("dd-MMM-yyyy") & "'); end;")
+                        '  sysMainClass.orlTable("Insert into FeeColl.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('New Data Loading','New Data Loading',sysdate,'" & strArray(0) & "')")
+                    End If
+                    i += 1
+                Loop
+                sysMainClass.orlTable("begin Insert into FeeColl.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('LoadTxtFile Proce End','LoadTxtFile End',sysdate,'" & v_filenamelog & "'); commit; end;")
+                flag = True
+                Return True
+            End If
+            sysMainClass.orlTable("begin Insert into FeeColl.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('LoadTxtFile Proce Error','File Doesnot Exist',sysdate,'" & v_filenamelog & "'); commit; end;")
+            flag = False
+        Catch ex As Exception
+
+            sysMainClass.orlTable("begin Insert into FeeColl.T_KELECT_LOG(LOGNAME, LOGDETAIL, CDATE, batchno) values ('LoadTxtFile Proce Error','" & ex.Message & "',sysdate,'" & v_filenamelog & "'); commit; end;")
+            flag = False
+            Return flag
+
+        End Try
+        Return flag
+    End Function
+
+    Private Function ValidateDataTOK(ByVal fln As String) As Boolean
+        Dim flag As Boolean = True
+        Return flag
+    End Function
+
+    Private Function SaveDataTOK() As Boolean
+        Dim flag As Boolean
+        Try
+            '  sysMainClass.orlTable("begin Insert into T_COLL_ELECTRIC_HIST Select *,'SCH_USER',sysdate from T_COLL_ELECTRIC where Account_number in (Select ACCOUNT_NUMBER from T_COLL_ELECTRIC_TEMP); commit; end;")
+            ' sysMainClass.orlTable("begin Delete from T_COLL_ELECTRIC where Account_number in (Select ACCOUNT_NUMBER from T_COLL_ELECTRIC_TEMP); commit; end;")
+            sysMainClass.orlTable("begin SP_COLL_ELECTRIC_TOK_INSERT; end;")
+            Dim table As DataTable = sysMainClass.orlTable("Select nvl(count(*),0) cnt from T_COLL_ELECTRIC_TEMP")
+            Me.v_TotalRec = CInt(table.Rows.Item(0).Item("cnt"))
+            'sysMainClass.orlTable("begin Delete from T_COLL_ELECTRIC_TEMP; commit; end;")
+            flag = True
+        Catch exception1 As Exception
+            flag = False
+            Return flag
+
+        End Try
+        Return flag
+    End Function
+    ''''''''''''''''''''' Test
+    'Private Sub DownloadStartNCMTest()
+    '    Try
+    '        Me.v_TotalRec = 0
+    '        Dim now1 As DateTime
+    '        '   If DateTime.Now.DayOfWeek = DayOfWeek.Monday Then
+    '        'now1 = DateTime.Now.AddDays(-2)
+    '        'Else
+    '        Dim dt As DataTable = sysMainClass.orlTable("select max(to_date(to_char(substr(BATCHNO,7,2)) || '/' || to_char(substr(BATCHNO,5,2)) || '/' ||  to_char(substr(BATCHNO,9,4)),'mm/dd/yyyy'))  + 1 BDate from T_KELECT_LOG_NCM a where batchno like 'NCM_%' and LOGDETAIL = 'LoadNCM End'")
+    '        If dt.Rows.Count > 0 And dt.Rows(0).Item(0) & "" <> "" Then
+    '            DateTimePicker1.Text = dt.Rows(0).Item(0)
+    '            DateTimePicker1.Format = DateTimePickerFormat.Custom
+    '            DateTimePicker1.CustomFormat = "dd-MMM-yyyy"
+    '        Else
+    '            DateTimePicker1.Text = DateTime.Now.AddDays(-1)
+    '            DateTimePicker1.Format = DateTimePickerFormat.Custom
+    '            DateTimePicker1.CustomFormat = "dd-MMM-yyyy"
+    '        End If
+
+    '        DateTimePicker1.Text = "14-Sep-2017"
+    '        '' End If
+    '        'While (DateTimePicker1.Text <= DateTime.Now.AddDays(-1))
+    '        now1 = DateTimePicker1.Text
+    '        Me.Label1.Visible = True
+    '        Application.DoEvents()
+    '        fln = "NCM_" & now1.Day.ToString("00") & now1.Month.ToString("00") & now1.Year.ToString("0000") & ".DAT"
+    '        '  If Me.downFileNCM(fln) Then
+    '        Application.DoEvents()
+    '        Me.PictureBox1.Visible = True
+    '        Me.Label2.Visible = True
+    '        Application.DoEvents()
+    '        If Me.LoadFileNCM(fln) Then
+    '            Application.DoEvents()
+    '            Me.PictureBox2.Visible = True
+    '            Me.Label3.Visible = True
+    '            Application.DoEvents()
+    '            If Me.ValidateDataNCM(fln) Then
+    '                Application.DoEvents()
+    '                Me.PictureBox3.Visible = True
+    '                Me.Label4.Visible = True
+    '                Application.DoEvents()
+    '                ' If Me.SaveDataNCM Then
+    '                'Me.PictureBox4.Visible = True
+    '                'Me.lblTotalD.Text = Me.v_TotalRec.ToString
+    '                'Else
+    '                ' Me.PictureBox4F.Visible = True
+    '                ' End If
+    '            Else
+    '                Me.PictureBox3F.Visible = True
+    '            End If
+    '        Else
+    '            Me.PictureBox2F.Visible = True
+    '        End If
+
+    '        ' Else
+    '        ' Me.PictureBox1F.Visible = True
+    '        ' End If
+    '        DateTimePicker1.Text = now1.AddDays(1)
+    '        '  End While
+    '    Catch ex As Exception
+    '        sysMainClass.errlog(ex)
+    '    End Try
+    '    ' Next i
+    'End Sub
+
+    Private Sub DownloadStartNCMManual()
+        Try
+            Me.v_TotalRec = 0
+            Dim now1 As DateTime
+            '   If DateTime.Now.DayOfWeek = DayOfWeek.Monday Then
+            'now1 = DateTime.Now.AddDays(-2)
+            'Else
+            Dim dt As DataTable = sysMainClass.orlTable("select max(to_date(to_char(substr(BATCHNO,7,2)) || '/' || to_char(substr(BATCHNO,5,2)) || '/' ||  to_char(substr(BATCHNO,9,4)),'mm/dd/yyyy'))  + 1 BDate from T_KELECT_LOG_NCM a where batchno like 'NCM_%' and LOGDETAIL = 'LoadFileNCM End'")
+           
+            now1 = DateTimePicker1.Text
+            Me.Label1.Visible = True
+            Application.DoEvents()
+            fln = "NCM_" & now1.Day.ToString("00") & now1.Month.ToString("00") & now1.Year.ToString("0000") & ".DAT"
+            If Me.downFileNCM(fln) Then
+                Application.DoEvents()
+                Me.PictureBox1.Visible = True
+                Me.Label2.Visible = True
+                Application.DoEvents()
+                If Me.LoadFileNCM(fln) Then
+                    Application.DoEvents()
+                    Me.PictureBox2.Visible = True
+                    Me.Label3.Visible = True
+                    Application.DoEvents()
+                    'If Me.ValidateDataNCM(fln) Then
+                    '    Application.DoEvents()
+                    '    Me.PictureBox3.Visible = True
+                    '    Me.Label4.Visible = True
+                    '    Application.DoEvents()
+                    '    If Me.SaveDataNCM Then
+                    '        Me.PictureBox4.Visible = True
+                    '        Me.lblTotalD.Text = Me.v_TotalRec.ToString
+                    '    Else
+                    '        Me.PictureBox4F.Visible = True
+                    '    End If
+                    'Else
+                    '    Me.PictureBox3F.Visible = True
+                    'End If
+                Else
+                    Me.PictureBox2F.Visible = True
+                End If
+
+            Else
+                Me.PictureBox1F.Visible = True
+            End If
+            DateTimePicker1.Text = now1.AddDays(1)
+
+        Catch ex As Exception
+            sysMainClass.errlog(ex)
+        End Try
+        ' Next i
+    End Sub
+
+    Private Sub UploadStartNCMManual()
+        Try
+            Dim now1 As DateTime
+            '   If DateTime.Now.DayOfWeek = DayOfWeek.Monday Then
+            'now1 = DateTime.Now.AddDays(-2)
+            'Else
+            '   For i = 1 To 3
+            Dim dt As DataTable = sysMainClass.orlTable("select max(to_date(to_char(substr(BATCHNO,4,2)) || '/' || to_char(substr(BATCHNO,2,2)) || '/' || to_char(substr(BATCHNO,6,2)),'mm/dd/yy')) + 1 BDate from T_KELECT_LOG_NCM a where batchno like 'A%' and LOGDETAIL = 'UploadFileNCM End'")
+            
+            now1 = DateTimePicker1.Text
+
+            Me.v_TotalRec = 0
+            Dim now As DateTime = DateTime.Now
+            Me.lblHeading.Visible = True
+            Me.lblHeading.Text = "Get Payment Data ..."
+            Application.DoEvents()
+            Dim fln As String = String.Concat(New String() {"A", now1.Day.ToString("00"), now1.Month.ToString("00"), now1.Year.ToString("00").Substring(2, 2), "001.DAT"})
+            Dim fln2 As String = "K-ELECTRIC NEW METER COLLECTION MIS DATED " & now1.Day.ToString("00") & "-" & now1.Month.ToString("00") & "-" & now1.Year.ToString("0000") & ".xls"
+
+            If Me.UpFileNCM(fln) Then
+                Application.DoEvents()
+                Me.PictureBox1.Visible = True
+                Me.Label1.Visible = True
+                Me.Label1.Text = "Generate Payment File"
+                Application.DoEvents()
+                If Me.CreateFileNCM(fln) Then
+                    Application.DoEvents()
+                    Me.PictureBox2.Visible = True
+                    Me.Label2.Visible = True
+                    Me.Label2.Text = "Upload on FTP"
+                    Application.DoEvents()
+                    Call CreateExcelNCM_MC()
+                    Call CreateExcelDetailNCM()
+                    Call CreateExcelNCM()
+                    'Call CreateExcelDetail()
+                    If Me.UploadsFTPNCM(fln) Then
+                        'If Me.UploadsFTP(fln2) Then
+                        '    'If Me.UploadsFTP(fln3) Then
+                        '    '    Me.PictureBox3.Visible = True
+                        '    'Else
+                        '    '    Me.PictureBox3F.Visible = True
+                        '    'End If
+                        'Else
+                        '    Me.PictureBox3F.Visible = True
+                        'End If
+                    Else
+                        Me.PictureBox3F.Visible = True
+                    End If
+                Else
+                    Me.PictureBox2F.Visible = True
+                End If
+            Else
+                Me.PictureBox1F.Visible = True
+            End If
+            DateTimePicker1.Text = now1.AddDays(1)
+
+        Catch ex As Exception
+            sysMainClass.errlog(ex)
+        End Try
+        ' Next i
+    End Sub
+
+    Private Sub UATUploadStart2()
+
+        Dim now1 As DateTime
+        '   If DateTime.Now.DayOfWeek = DayOfWeek.Monday Then
+        'now1 = DateTime.Now.AddDays(-2)
+        'Else
+        '   For i = 1 To 3
+        now1 = DateTimePicker1.Text
+
+        Me.v_TotalRec = 0
+        Dim now As DateTime = DateTime.Now
+        Me.lblHeading.Visible = True
+        Me.lblHeading.Text = "Get Payment Data ..."
+        Application.DoEvents()
+        Dim fln As String = String.Concat(New String() {"ASK", now1.Day.ToString("00"), now1.Month.ToString("00"), now1.Year.ToString("0000"), ".DAT"})
+        Dim fln2 As String = "MIS CONTROL" & now1.Day.ToString("00") & now1.Month.ToString("00") & now1.Year.ToString("0000")
+        Dim fln3 As String = "KESCUBCSScrollandSumDailyReport" & now1.Day.ToString("00") & now1.Month.ToString("00") & now1.Year.ToString("0000") & ".xls"
+
+        If Me.UpFile(fln) Then
+            Application.DoEvents()
+            Me.PictureBox1.Visible = True
+            Me.Label1.Visible = True
+            Me.Label1.Text = "Generate Payment File"
+            Application.DoEvents()
+            If Me.CreateTXTFile(fln) Then
+                Application.DoEvents()
+                Me.PictureBox2.Visible = True
+                Me.Label2.Visible = True
+                Me.Label2.Text = "Upload on FTP"
+                Application.DoEvents()
+                Call CreateExcel()
+                Call CreateExcelDetail()
+                ' If Me.UploadsFTP(fln) Then
+                'If Me.UploadsFTP(fln2) Then
+                '    'If Me.UploadsFTP(fln3) Then
+                '    '    Me.PictureBox3.Visible = True
+                '    'Else
+                '    '    Me.PictureBox3F.Visible = True
+                '    'End If
+                'Else
+                '    Me.PictureBox3F.Visible = True
+                'End If
+                'Else
+                '   Me.PictureBox3F.Visible = True
+                'End If
+            Else
+                Me.PictureBox2F.Visible = True
+            End If
+        Else
+            Me.PictureBox1F.Visible = True
+        End If
+
+    End Sub
+
+    Private Sub DateTimePicker1_ValueChanged(sender As Object, e As EventArgs) Handles DateTimePicker1.ValueChanged
+        If DateTimePicker1.Value > DateTime.Now.AddDays(-1) Then
+            DateTimePicker1.Value = DateTime.Now.AddDays(-1)
+        End If
+    End Sub
+End Class--_mixed 0035BF7C45258850_--
